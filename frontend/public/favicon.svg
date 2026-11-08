@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="judgeLab" x1="5" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B2B55"/>
+      <stop offset=".55" stop-color="#075E88"/>
+      <stop offset="1" stop-color="#00D9FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="46" height="46" rx="13" fill="url(#judgeLab)"/>
+  <path d="M15 14h18v5H15zM17 21h14v4H17zM20 28h8v7h-8z" fill="#E8FCFF"/>
+  <path d="M12 15h2M34 15h2M14 23h2M32 23h2M17 35h14" stroke="#9BF5FF" stroke-width="2" stroke-linecap="round"/>
+</svg>
