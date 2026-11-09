@@ -287,10 +287,24 @@ def test_database_selective_persistence():
     import uuid
 
     from src.database import SessionLocal, SessionRepository, init_db
+    from src.database.models import UserRecord
 
     init_db()
     db = SessionLocal()
     repo = SessionRepository(db)
+
+    # Create a valid user for the session foreign key.
+    test_user_id = f"unit-test-user-{uuid.uuid4().hex}"
+
+    test_user = UserRecord(
+        id=test_user_id,
+        username=test_user_id,
+        email=f"{test_user_id}@example.test",
+        password_hash="test-password-hash",
+    )
+
+    db.add(test_user)
+    db.commit()
 
     test_data = {
         "session_id": "test-sess-001",
@@ -368,9 +382,9 @@ def test_database_selective_persistence():
         "raw_responses": False,
     }
     session_id = f"test-sess-{uuid.uuid4().hex}"
-    repo.save_session(session_id, test_data, save_opts, user_id="unit-test-user")
+    repo.save_session(session_id, test_data, save_opts, user_id=test_user_id)
 
-    retrieved = repo.get_session(session_id, user_id="unit-test-user")
+    retrieved = repo.get_session(session_id, user_id=test_user_id)
     assert retrieved is not None
     assert retrieved["input"]["prompt"] == "What is Raft consensus?"
     assert len(retrieved["answers"]) == 2
