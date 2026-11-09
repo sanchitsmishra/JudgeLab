@@ -1,7 +1,7 @@
 import asyncio
 import time
-from typing import Optional, Dict, Any, Set
-from src.providers.base import BaseProvider, ProviderResponse, ProviderError, GenerationConfig
+
+from src.providers.base import BaseProvider, GenerationConfig, ProviderError, ProviderResponse
 
 
 class MockProvider(BaseProvider):
@@ -9,9 +9,9 @@ class MockProvider(BaseProvider):
 
     def __init__(
         self,
-        simulated_latencies: Optional[Dict[str, float]] = None,
-        failing_models: Optional[Set[str]] = None,
-        always_available: bool = True
+        simulated_latencies: dict[str, float] | None = None,
+        failing_models: set[str] | None = None,
+        always_available: bool = True,
     ):
         self._provider_name = "mock"
         self._simulated_latencies = simulated_latencies or {
@@ -20,7 +20,7 @@ class MockProvider(BaseProvider):
             "model-c": 0.35,
             "model-d": 0.20,
         }
-        self.failing_models: Set[str] = set(failing_models or [])
+        self.failing_models: set[str] = set(failing_models or [])
         self._always_available = always_available
 
     @property
@@ -30,15 +30,15 @@ class MockProvider(BaseProvider):
     def is_available(self) -> bool:
         return self._always_available
 
-    def set_failing_models(self, models: Set[str]) -> None:
+    def set_failing_models(self, models: set[str]) -> None:
         self.failing_models = set(models)
 
     async def generate(
         self,
         model_name: str,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        generation_config: Optional[GenerationConfig] = None
+        system_prompt: str | None = None,
+        generation_config: GenerationConfig | None = None,
     ) -> ProviderResponse:
         start_time = time.perf_counter()
         clean_model = model_name.replace("mock:", "")
@@ -59,8 +59,8 @@ class MockProvider(BaseProvider):
                 error=ProviderError(
                     type="MockSimulatedFailure",
                     message=f"Simulated failure for mock model '{clean_model}'",
-                    retryable=False
-                )
+                    retryable=False,
+                ),
             )
 
         # Generate realistic simulated answers based on model persona
@@ -102,12 +102,11 @@ class MockProvider(BaseProvider):
                 f"- **Architecture**: Clean layered design separating Presentation, Domain, and Data Access layers.\n"
                 f"- **Security**: Strict mTLS, OAuth2 token validation, and encryption at rest using AES-256-GCM.\n"
                 f"- **Monitoring**: OpenTelemetry tracing, Prometheus metrics collection, and alerting."
-            )
+            ),
         }
 
         answer = personas.get(
-            clean_model,
-            f"Mock response from {clean_model} for prompt: {prompt[:100]}..."
+            clean_model, f"Mock response from {clean_model} for prompt: {prompt[:100]}..."
         )
 
         input_tokens = max(10, len(prompt.split()) * 2)
@@ -122,5 +121,5 @@ class MockProvider(BaseProvider):
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             estimated_cost=0.0,
-            raw_metadata={"mock": True, "clean_model": clean_model}
+            raw_metadata={"mock": True, "clean_model": clean_model},
         )

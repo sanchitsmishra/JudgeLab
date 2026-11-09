@@ -1,7 +1,7 @@
 """Report generator assembling full evaluation sessions into structured reports."""
 
-from typing import Dict, Any, List, Optional
 import time
+from typing import Any
 
 
 class ReportGenerator:
@@ -12,24 +12,21 @@ class ReportGenerator:
         session_id: str,
         mode: str,
         prompt: str,
-        system_prompt: Optional[str],
-        answers: List[Dict[str, Any]],
-        pairwise_comparisons: List[Dict[str, Any]],
-        rankings: List[Dict[str, Any]],
-        metrics: Dict[str, Any],
-        status: str = "COMPLETED"
-    ) -> Dict[str, Any]:
+        system_prompt: str | None,
+        answers: list[dict[str, Any]],
+        pairwise_comparisons: list[dict[str, Any]],
+        rankings: list[dict[str, Any]],
+        metrics: dict[str, Any],
+        status: str = "COMPLETED",
+    ) -> dict[str, Any]:
         return {
             "session_id": session_id,
             "mode": mode,
             "status": status,
             "timestamp": time.time(),
-            "input": {
-                "prompt": prompt,
-                "system_prompt": system_prompt
-            },
+            "input": {"prompt": prompt, "system_prompt": system_prompt},
             "answers": answers,
             "pairwise_comparisons": pairwise_comparisons,
             "rankings": rankings,
-            "metrics": metrics
+            "metrics": metrics,
         }

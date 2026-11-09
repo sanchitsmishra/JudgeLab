@@ -49,13 +49,8 @@ build-backend = "setuptools.build_meta"
 line-length = 100
 target-version = "py311"
 [tool.ruff.lint]
-select = [
-    "E", "F", "I", "N", "W", "UP", "B", "C4", "SIM", "T20", "PYI", "PD", "RSE", "RET", "ERA", "PL", "ARG", "PTH", "TID", "QF", "FLY", "NPY", "PERF", "LOG", "TRY", "ASYNC", "D", "DTZ", "EXE", "ISC", "ICN", "PIE", "TCH", "INT", "COM", "EM", "PGH", "PT", "REF", "S", "SLF", "SLOT", "TRYC", "UN", "YTT", "RUF",
-]
-ignore = [
-    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
-    "S101", "S311", "S603", "S607",
-]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]

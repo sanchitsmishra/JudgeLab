@@ -1,15 +1,16 @@
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
+from src.api.dependencies import (
+    get_comparison_service,
+    get_current_user_optional,
+)
+from src.api.schemas.requests import GenerateCompareRequest
 from src.database.connection import get_db
 from src.database.models import UserApiKeyRecord
-from src.api.routes.auth import get_current_user_optional
-from src.api.schemas.requests import GenerateCompareRequest
-from src.api.dependencies import get_comparison_service
-from src.services.comparison_service import ComparisonService
 from src.providers.base import GenerationConfig
-
 from src.services.auth import decrypt_api_key
+from src.services.comparison_service import ComparisonService
 
 router = APIRouter(prefix="/api/generate-compare", tags=["Generation & Comparison"])
 
@@ -19,7 +20,7 @@ async def generate_and_compare(
     request: GenerateCompareRequest,
     service: ComparisonService = Depends(get_comparison_service),
     user=Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Mode 1: Concurrently generates answers for selected models and evaluates them pairwise.
@@ -46,7 +47,7 @@ async def generate_and_compare(
                 temperature=request.generation_config.temperature,
                 max_tokens=request.generation_config.max_tokens,
                 top_p=request.generation_config.top_p,
-                extra_params=request.generation_config.extra_params
+                extra_params=request.generation_config.extra_params,
             )
 
         report = await service.run_generate_and_compare(
@@ -55,17 +56,16 @@ async def generate_and_compare(
             system_prompt=request.system_prompt,
             generation_config=gen_config,
             position_swap_check=request.position_swap_check,
-            custom_api_keys=effective_keys if effective_keys else None
+            custom_api_keys=effective_keys if effective_keys else None,
         )
         return report
 
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc)
-        )
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Generation comparison failed: {str(exc)}"
-        )
+            detail=f"Generation comparison failed: {str(exc)}",
+        ) from exc

@@ -1,20 +1,17 @@
 """xAI Grok provider implementation."""
 
 import time
-from typing import Optional, Dict, Any
+
 import httpx
+
 from src.config.settings import settings
-from src.providers.base import BaseProvider, ProviderResponse, ProviderError, GenerationConfig
+from src.providers.base import BaseProvider, GenerationConfig, ProviderError, ProviderResponse
 
 
 class GrokProvider(BaseProvider):
     """Provider for xAI Grok API (OpenAI-compatible /v1/chat/completions)."""
 
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        base_url: str = "https://api.x.ai/v1"
-    ):
+    def __init__(self, api_key: str | None = None, base_url: str = "https://api.x.ai/v1"):
         self.api_key = api_key or settings.grok_api_key or settings.xai_api_key
         self.base_url = base_url.rstrip("/")
 
@@ -29,8 +26,8 @@ class GrokProvider(BaseProvider):
         self,
         model_name: str,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        generation_config: Optional[GenerationConfig] = None
+        system_prompt: str | None = None,
+        generation_config: GenerationConfig | None = None,
     ) -> ProviderResponse:
         start_time = time.perf_counter()
 
@@ -44,8 +41,8 @@ class GrokProvider(BaseProvider):
                 error=ProviderError(
                     type="ConfigurationError",
                     message="GROK_API_KEY / XAI_API_KEY is not configured.",
-                    retryable=False
-                )
+                    retryable=False,
+                ),
             )
 
         clean_model = model_name
@@ -70,20 +67,15 @@ class GrokProvider(BaseProvider):
             "messages": messages,
             "temperature": cfg.temperature,
             "max_tokens": cfg.max_tokens,
-            **cfg.extra_params
+            **cfg.extra_params,
         }
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
         try:
             async with httpx.AsyncClient(timeout=settings.generation_timeout_seconds) as client:
                 resp = await client.post(
-                    f"{target_url}/chat/completions",
-                    json=payload,
-                    headers=headers
+                    f"{target_url}/chat/completions", json=payload, headers=headers
                 )
                 elapsed = time.perf_counter() - start_time
 
@@ -96,8 +88,8 @@ class GrokProvider(BaseProvider):
                         error=ProviderError(
                             type="RateLimitError",
                             message="xAI Grok rate limit reached.",
-                            retryable=True
-                        )
+                            retryable=True,
+                        ),
                     )
                 elif resp.status_code in (401, 403):
                     return ProviderResponse(
@@ -108,8 +100,8 @@ class GrokProvider(BaseProvider):
                         error=ProviderError(
                             type="AuthenticationError",
                             message="Invalid xAI Grok API key.",
-                            retryable=False
-                        )
+                            retryable=False,
+                        ),
                     )
                 elif resp.status_code != 200:
                     err_text = resp.text[:300]
@@ -121,8 +113,8 @@ class GrokProvider(BaseProvider):
                         error=ProviderError(
                             type="APIError",
                             message=f"xAI Grok HTTP {resp.status_code}: {err_text}",
-                            retryable=resp.status_code >= 500
-                        )
+                            retryable=resp.status_code >= 500,
+                        ),
                     )
 
                 data = resp.json()
@@ -136,8 +128,8 @@ class GrokProvider(BaseProvider):
                         error=ProviderError(
                             type="EmptyResponseError",
                             message="Grok returned no completions.",
-                            retryable=False
-                        )
+                            retryable=False,
+                        ),
                     )
 
                 answer = choices[0].get("message", {}).get("content", "")
@@ -153,7 +145,7 @@ class GrokProvider(BaseProvider):
                     latency_seconds=elapsed,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
-                    raw_metadata=data
+                    raw_metadata=data,
                 )
 
         except httpx.TimeoutException:
@@ -166,8 +158,8 @@ class GrokProvider(BaseProvider):
                 error=ProviderError(
                     type="TimeoutError",
                     message=f"Grok request timed out after {settings.generation_timeout_seconds}s.",
-                    retryable=True
-                )
+                    retryable=True,
+                ),
             )
         except Exception as exc:
             elapsed = time.perf_counter() - start_time
@@ -176,9 +168,5 @@ class GrokProvider(BaseProvider):
                 model=model_name,
                 provider=self.provider_name,
                 latency_seconds=elapsed,
-                error=ProviderError(
-                    type=type(exc).__name__,
-                    message=str(exc),
-                    retryable=False
-                )
+                error=ProviderError(type=type(exc).__name__, message=str(exc), retryable=False),
             )

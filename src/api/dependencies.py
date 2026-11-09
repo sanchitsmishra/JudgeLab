@@ -1,16 +1,17 @@
-from typing import Optional, Generator
+from collections.abc import Generator
+
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+
 from src.config.database import get_db
 from src.database.connection import get_db as get_sync_db
 from src.database.repository import SessionRepository
-from src.services.comparison_service import ComparisonService
 from src.models import User
 from src.services.auth_jwt import decode_access_token
-from src.config.settings import settings
+from src.services.comparison_service import ComparisonService
 
 security = HTTPBearer(auto_error=False)
 
@@ -30,33 +31,32 @@ def get_comparison_service() -> ComparisonService:
     return ComparisonService()
 
 
-
 async def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_db),
-) -> Optional[User]:
+) -> User | None:
     """Optional dependency extracting user from Authorization: Bearer <token>."""
     if not credentials or not credentials.credentials:
         return None
-    
+
     payload = decode_access_token(credentials.credentials)
     if not payload:
         return None
-    
+
     user_id = payload.get("sub")
     if not user_id:
         return None
-    
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    
+
     if user and user.is_active:
         return user
     return None
 
 
 async def get_current_user_required(
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> User:
     """Required dependency requiring valid authenticated user."""
     if not current_user:

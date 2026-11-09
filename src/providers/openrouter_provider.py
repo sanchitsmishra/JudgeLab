@@ -1,20 +1,17 @@
 """OpenRouter LLM provider supporting free and paid model tiers."""
 
 import time
-from typing import Optional, Dict, Any
+
 import httpx
+
 from src.config.settings import settings
-from src.providers.base import BaseProvider, ProviderResponse, ProviderError, GenerationConfig
+from src.providers.base import BaseProvider, GenerationConfig, ProviderError, ProviderResponse
 
 
 class OpenRouterProvider(BaseProvider):
     """Provider for OpenRouter Unified API (OpenAI-compatible)."""
 
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        base_url: str = "https://openrouter.ai/api/v1"
-    ):
+    def __init__(self, api_key: str | None = None, base_url: str = "https://openrouter.ai/api/v1"):
         self.api_key = api_key or settings.openrouter_api_key
         self.base_url = base_url.rstrip("/")
 
@@ -29,8 +26,8 @@ class OpenRouterProvider(BaseProvider):
         self,
         model_name: str,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        generation_config: Optional[GenerationConfig] = None
+        system_prompt: str | None = None,
+        generation_config: GenerationConfig | None = None,
     ) -> ProviderResponse:
         start_time = time.perf_counter()
 
@@ -44,8 +41,8 @@ class OpenRouterProvider(BaseProvider):
                 error=ProviderError(
                     type="ConfigurationError",
                     message="OPENROUTER_API_KEY is not configured.",
-                    retryable=False
-                )
+                    retryable=False,
+                ),
             )
 
         clean_model = model_name
@@ -63,22 +60,20 @@ class OpenRouterProvider(BaseProvider):
             "messages": messages,
             "temperature": cfg.temperature,
             "max_tokens": cfg.max_tokens,
-            **cfg.extra_params
+            **cfg.extra_params,
         }
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "HTTP-Referer": "https://llm-judge.local",
             "X-Title": "LLM-Judge Platform",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         try:
             async with httpx.AsyncClient(timeout=settings.generation_timeout_seconds) as client:
                 resp = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers
+                    f"{self.base_url}/chat/completions", json=payload, headers=headers
                 )
                 elapsed = time.perf_counter() - start_time
 
@@ -91,8 +86,8 @@ class OpenRouterProvider(BaseProvider):
                         error=ProviderError(
                             type="RateLimitError",
                             message="OpenRouter rate limit reached or free credits exhausted.",
-                            retryable=True
-                        )
+                            retryable=True,
+                        ),
                     )
                 elif resp.status_code in (401, 403):
                     return ProviderResponse(
@@ -103,8 +98,8 @@ class OpenRouterProvider(BaseProvider):
                         error=ProviderError(
                             type="AuthenticationError",
                             message="Invalid OpenRouter API key.",
-                            retryable=False
-                        )
+                            retryable=False,
+                        ),
                     )
                 elif resp.status_code != 200:
                     err_text = resp.text[:300]
@@ -116,8 +111,8 @@ class OpenRouterProvider(BaseProvider):
                         error=ProviderError(
                             type="APIError",
                             message=f"OpenRouter HTTP {resp.status_code}: {err_text}",
-                            retryable=resp.status_code >= 500
-                        )
+                            retryable=resp.status_code >= 500,
+                        ),
                     )
 
                 data = resp.json()
@@ -131,8 +126,8 @@ class OpenRouterProvider(BaseProvider):
                         error=ProviderError(
                             type="EmptyResponseError",
                             message="OpenRouter returned no completions.",
-                            retryable=False
-                        )
+                            retryable=False,
+                        ),
                     )
 
                 answer = choices[0].get("message", {}).get("content", "")
@@ -148,7 +143,7 @@ class OpenRouterProvider(BaseProvider):
                     latency_seconds=elapsed,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
-                    raw_metadata=data
+                    raw_metadata=data,
                 )
 
         except httpx.TimeoutException:
@@ -161,8 +156,8 @@ class OpenRouterProvider(BaseProvider):
                 error=ProviderError(
                     type="TimeoutError",
                     message=f"OpenRouter request timed out after {settings.generation_timeout_seconds}s.",
-                    retryable=True
-                )
+                    retryable=True,
+                ),
             )
         except Exception as exc:
             elapsed = time.perf_counter() - start_time
@@ -171,9 +166,5 @@ class OpenRouterProvider(BaseProvider):
                 model=model_name,
                 provider=self.provider_name,
                 latency_seconds=elapsed,
-                error=ProviderError(
-                    type=type(exc).__name__,
-                    message=str(exc),
-                    retryable=False
-                )
+                error=ProviderError(type=type(exc).__name__, message=str(exc), retryable=False),
             )

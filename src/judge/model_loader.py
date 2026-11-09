@@ -1,10 +1,10 @@
 """Model loader and GPU inference concurrency guard for LLM-Judge."""
 
 import asyncio
-import hashlib
 import json
 import logging
-from typing import Optional, Any, Tuple
+from typing import Any, Optional
+
 from src.judge.evaluator import JudgeEvaluator
 
 logger = logging.getLogger("llm_judge.loader")
@@ -22,7 +22,7 @@ class MockJudgeEvaluator:
         "relevance": 0.20,
         "completeness": 0.15,
         "reasoning": 0.15,
-        "clarity": 0.10
+        "clarity": 0.10,
     }
 
     def __init__(self, max_new_tokens: int = 300, max_retries: int = 1):
@@ -51,8 +51,7 @@ class MockJudgeEvaluator:
             clar = min(10, max(6, 8 + structure_bonus))
 
             final_score = round(
-                corr * 0.40 + rel * 0.20 + comp * 0.15 + reas * 0.15 + clar * 0.10,
-                2
+                corr * 0.40 + rel * 0.20 + comp * 0.15 + reas * 0.15 + clar * 0.10, 2
             )
 
             return {
@@ -62,7 +61,7 @@ class MockJudgeEvaluator:
                 "reasoning": reas,
                 "clarity": clar,
                 "feedback": f"Evaluated answer with {words} words. Structured logical flow observed.",
-                "final_score": final_score
+                "final_score": final_score,
             }
 
         scores_a = score_answer(answer_a)
@@ -83,18 +82,15 @@ class MockJudgeEvaluator:
 
         result = {
             "winner": winner,
-            "scores": {
-                "A": scores_a,
-                "B": scores_b
-            },
+            "scores": {"A": scores_a, "B": scores_b},
             "confidence": confidence,
-            "reason": reason
+            "reason": reason,
         }
 
         return {
             "result": result,
             "raw_response": json.dumps({"A": scores_a, "B": scores_b}),
-            "attempts": 1
+            "attempts": 1,
         }
 
 
@@ -105,12 +101,12 @@ class JudgeManager:
     """
 
     _instance: Optional["JudgeManager"] = None
-    _judge_instance: Optional[Any] = None
-    _lock: Optional[asyncio.Lock] = None
+    _judge_instance: Any | None = None
+    _lock: asyncio.Lock | None = None
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(JudgeManager, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._judge_instance = None
             cls._instance._lock = None
         return cls._instance
@@ -129,6 +125,7 @@ class JudgeManager:
         """Get the active judge, defaulting to remote Hugging Face JudgeEvaluator."""
         if self._judge_instance is None:
             from src.judge.evaluator import JudgeEvaluator
+
             self._judge_instance = JudgeEvaluator()
         return self._judge_instance
 
@@ -136,7 +133,7 @@ class JudgeManager:
         self,
         model_name: str = "Qwen/Qwen2.5-7B-Instruct",
         max_new_tokens: int = 300,
-        max_retries: int = 1
+        max_retries: int = 1,
     ) -> JudgeEvaluator:
         """Load real Qwen model using existing ModelLoader."""
         from src.model.loader import ModelLoader
@@ -145,10 +142,7 @@ class JudgeManager:
         loader = ModelLoader(model_name)
         tokenizer, model = loader.load()
         evaluator = JudgeEvaluator(
-            model=model,
-            tokenizer=tokenizer,
-            max_new_tokens=max_new_tokens,
-            max_retries=max_retries
+            model=model, tokenizer=tokenizer, max_new_tokens=max_new_tokens, max_retries=max_retries
         )
         self._judge_instance = evaluator
         logger.info("Qwen judge model loaded successfully.")

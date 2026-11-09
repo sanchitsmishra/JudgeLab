@@ -1,14 +1,14 @@
 from src.models.base import Base
 from src.models.session import (
-    Session,
-    GenerationModel,
     Comparison,
-    Ranking,
+    GenerationModel,
     Metrics,
+    Ranking,
+    Session,
+    SessionMode,
+    SessionStatus,
     User,
     UserApiKey,
-    SessionStatus,
-    SessionMode,
 )
 
 __all__ = [

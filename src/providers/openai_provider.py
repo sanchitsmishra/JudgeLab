@@ -1,16 +1,17 @@
 """OpenAI provider implementation."""
 
 import time
-from typing import Optional, Dict, Any
+
 import httpx
+
 from src.config.settings import settings
-from src.providers.base import BaseProvider, ProviderResponse, ProviderError, GenerationConfig
+from src.providers.base import BaseProvider, GenerationConfig, ProviderError, ProviderResponse
 
 
 class OpenAIProvider(BaseProvider):
     """Provider for OpenAI Chat Completions API."""
 
-    def __init__(self, api_key: Optional[str] = None, base_url: str = "https://api.openai.com/v1"):
+    def __init__(self, api_key: str | None = None, base_url: str = "https://api.openai.com/v1"):
         self.api_key = api_key or settings.openai_api_key
         self.base_url = base_url.rstrip("/")
 
@@ -25,8 +26,8 @@ class OpenAIProvider(BaseProvider):
         self,
         model_name: str,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        generation_config: Optional[GenerationConfig] = None
+        system_prompt: str | None = None,
+        generation_config: GenerationConfig | None = None,
     ) -> ProviderResponse:
         start_time = time.perf_counter()
 
@@ -40,8 +41,8 @@ class OpenAIProvider(BaseProvider):
                 error=ProviderError(
                     type="ConfigurationError",
                     message="OPENAI_API_KEY is not configured in environment.",
-                    retryable=False
-                )
+                    retryable=False,
+                ),
             )
 
         messages = []
@@ -55,20 +56,15 @@ class OpenAIProvider(BaseProvider):
             "messages": messages,
             "temperature": cfg.temperature,
             "max_tokens": cfg.max_tokens,
-            **cfg.extra_params
+            **cfg.extra_params,
         }
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
         try:
             async with httpx.AsyncClient(timeout=settings.generation_timeout_seconds) as client:
                 resp = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers
+                    f"{self.base_url}/chat/completions", json=payload, headers=headers
                 )
                 elapsed = time.perf_counter() - start_time
 
@@ -81,8 +77,8 @@ class OpenAIProvider(BaseProvider):
                         error=ProviderError(
                             type="RateLimitError",
                             message="OpenAI rate limit exceeded.",
-                            retryable=True
-                        )
+                            retryable=True,
+                        ),
                     )
                 elif resp.status_code == 401:
                     return ProviderResponse(
@@ -93,8 +89,8 @@ class OpenAIProvider(BaseProvider):
                         error=ProviderError(
                             type="AuthenticationError",
                             message="Invalid OpenAI API key.",
-                            retryable=False
-                        )
+                            retryable=False,
+                        ),
                     )
                 elif resp.status_code != 200:
                     return ProviderResponse(
@@ -105,8 +101,8 @@ class OpenAIProvider(BaseProvider):
                         error=ProviderError(
                             type="APIError",
                             message=f"OpenAI error HTTP {resp.status_code}: {resp.text[:200]}",
-                            retryable=resp.status_code >= 500
-                        )
+                            retryable=resp.status_code >= 500,
+                        ),
                     )
 
                 data = resp.json()
@@ -120,8 +116,8 @@ class OpenAIProvider(BaseProvider):
                         error=ProviderError(
                             type="EmptyResponseError",
                             message="OpenAI returned empty choices array.",
-                            retryable=False
-                        )
+                            retryable=False,
+                        ),
                     )
 
                 answer = choices[0].get("message", {}).get("content", "")
@@ -137,7 +133,10 @@ class OpenAIProvider(BaseProvider):
                     latency_seconds=elapsed,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
-                    raw_metadata={"id": data.get("id"), "finish_reason": choices[0].get("finish_reason")}
+                    raw_metadata={
+                        "id": data.get("id"),
+                        "finish_reason": choices[0].get("finish_reason"),
+                    },
                 )
 
         except httpx.TimeoutException:
@@ -150,8 +149,8 @@ class OpenAIProvider(BaseProvider):
                 error=ProviderError(
                     type="TimeoutError",
                     message=f"OpenAI request timed out after {settings.generation_timeout_seconds}s.",
-                    retryable=True
-                )
+                    retryable=True,
+                ),
             )
         except Exception as exc:
             elapsed = time.perf_counter() - start_time
@@ -160,9 +159,5 @@ class OpenAIProvider(BaseProvider):
                 model=model_name,
                 provider=self.provider_name,
                 latency_seconds=elapsed,
-                error=ProviderError(
-                    type=type(exc).__name__,
-                    message=str(exc),
-                    retryable=False
-                )
+                error=ProviderError(type=type(exc).__name__, message=str(exc), retryable=False),
             )

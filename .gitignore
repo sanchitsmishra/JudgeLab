@@ -48,3 +48,8 @@ Thumbs.db
 # Local model downloads
 /models/
 
+
+# Test coverage reports
+.coverage
+coverage.xml
+htmlcov/

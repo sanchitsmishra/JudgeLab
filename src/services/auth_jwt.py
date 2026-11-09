@@ -1,8 +1,9 @@
-import bcrypt
 import hashlib
 from datetime import datetime, timedelta
-from typing import Optional
+
+import bcrypt
 from jose import JWTError, jwt
+
 from src.config.settings import settings
 
 SECRET_KEY = settings.jwt_secret_key
@@ -18,10 +19,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
             bcrypt_hash = hashed_password.removeprefix("bcrypt-sha256$")
             return bcrypt.checkpw(digest, bcrypt_hash.encode("utf-8"))
         # Existing accounts used raw bcrypt input truncated at 72 bytes.
-        return bcrypt.checkpw(
-            plain_password.encode("utf-8")[:72],
-            hashed_password.encode("utf-8")
-        )
+        return bcrypt.checkpw(plain_password.encode("utf-8")[:72], hashed_password.encode("utf-8"))
     except Exception:
         return False
 
@@ -33,7 +31,7 @@ def get_password_hash(password: str) -> str:
     return f"bcrypt-sha256${bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')}"
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -44,7 +42,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload

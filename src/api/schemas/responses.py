@@ -1,7 +1,8 @@
 """Pydantic response models for API endpoints."""
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel
 
 
 class ModelInfoResponse(BaseModel):
@@ -10,16 +11,16 @@ class ModelInfoResponse(BaseModel):
     provider: str
     enabled: bool
     available: bool
-    pricing: Optional[Dict[str, Any]] = None
-    description: Optional[str] = None
+    pricing: dict[str, Any] | None = None
+    description: str | None = None
 
 
 class ModelListResponse(BaseModel):
-    models: List[ModelInfoResponse]
+    models: list[ModelInfoResponse]
     total: int
 
 
 class GenericSuccessResponse(BaseModel):
     success: bool
     message: str
-    data: Optional[Dict[str, Any]] = None
+    data: dict[str, Any] | None = None

@@ -1,17 +1,18 @@
 """Ollama local model provider implementation."""
 
 import time
-from typing import Optional, Dict, Any
+
 import httpx
+
 from src.config.settings import settings
-from src.providers.base import BaseProvider, ProviderResponse, ProviderError, GenerationConfig
+from src.providers.base import BaseProvider, GenerationConfig, ProviderError, ProviderResponse
 from src.utils.url_safety import is_safe_ollama_url
 
 
 class OllamaProvider(BaseProvider):
     """Provider for local Ollama instance (http://localhost:11434 by default)."""
 
-    def __init__(self, base_url: Optional[str] = None):
+    def __init__(self, base_url: str | None = None):
         self.base_url = (base_url or settings.ollama_base_url).rstrip("/")
 
     @property
@@ -37,8 +38,8 @@ class OllamaProvider(BaseProvider):
         self,
         model_name: str,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        generation_config: Optional[GenerationConfig] = None
+        system_prompt: str | None = None,
+        generation_config: GenerationConfig | None = None,
     ) -> ProviderResponse:
         start_time = time.perf_counter()
 
@@ -67,18 +68,15 @@ class OllamaProvider(BaseProvider):
             "options": {
                 "temperature": cfg.temperature,
                 "num_predict": cfg.max_tokens,
-                **cfg.extra_params
-            }
+                **cfg.extra_params,
+            },
         }
         if system_prompt:
             payload["system"] = system_prompt
 
         try:
             async with httpx.AsyncClient(timeout=settings.generation_timeout_seconds) as client:
-                resp = await client.post(
-                    f"{self.base_url}/api/generate",
-                    json=payload
-                )
+                resp = await client.post(f"{self.base_url}/api/generate", json=payload)
                 elapsed = time.perf_counter() - start_time
 
                 if resp.status_code == 404:
@@ -90,8 +88,8 @@ class OllamaProvider(BaseProvider):
                         error=ProviderError(
                             type="ModelNotFoundError",
                             message=f"Model '{clean_model}' is not installed in local Ollama instance. Run 'ollama pull {clean_model}'.",
-                            retryable=False
-                        )
+                            retryable=False,
+                        ),
                     )
                 elif resp.status_code != 200:
                     return ProviderResponse(
@@ -102,8 +100,8 @@ class OllamaProvider(BaseProvider):
                         error=ProviderError(
                             type="APIError",
                             message=f"Ollama error HTTP {resp.status_code}: {resp.text[:200]}",
-                            retryable=resp.status_code >= 500
-                        )
+                            retryable=resp.status_code >= 500,
+                        ),
                     )
 
                 data = resp.json()
@@ -120,7 +118,7 @@ class OllamaProvider(BaseProvider):
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
                     estimated_cost=0.0,
-                    raw_metadata={"total_duration": data.get("total_duration")}
+                    raw_metadata={"total_duration": data.get("total_duration")},
                 )
 
         except httpx.ConnectError:
@@ -133,8 +131,8 @@ class OllamaProvider(BaseProvider):
                 error=ProviderError(
                     type="ConnectionRefusedError",
                     message=f"Cannot connect to Ollama at '{self.base_url}'. Ensure the Ollama service is running.",
-                    retryable=True
-                )
+                    retryable=True,
+                ),
             )
         except httpx.TimeoutException:
             elapsed = time.perf_counter() - start_time
@@ -146,8 +144,8 @@ class OllamaProvider(BaseProvider):
                 error=ProviderError(
                     type="TimeoutError",
                     message=f"Ollama request timed out after {settings.generation_timeout_seconds}s.",
-                    retryable=True
-                )
+                    retryable=True,
+                ),
             )
         except Exception as exc:
             elapsed = time.perf_counter() - start_time
@@ -156,9 +154,5 @@ class OllamaProvider(BaseProvider):
                 model=model_name,
                 provider=self.provider_name,
                 latency_seconds=elapsed,
-                error=ProviderError(
-                    type=type(exc).__name__,
-                    message=str(exc),
-                    retryable=False
-                )
+                error=ProviderError(type=type(exc).__name__, message=str(exc), retryable=False),
             )

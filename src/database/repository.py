@@ -1,15 +1,17 @@
 """Repository for persisting evaluation sessions with user-controlled partial saving."""
 
 import uuid
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
 from src.database.models import (
-    SessionRecord,
-    PromptRecord,
+    EvaluationResultRecord,
     ModelResponseRecord,
     PairwiseComparisonRecord,
-    EvaluationResultRecord,
+    PromptRecord,
+    SessionRecord,
 )
 
 
@@ -22,10 +24,10 @@ class SessionRepository:
     def save_session(
         self,
         session_id: str,
-        session_data: Dict[str, Any],
-        save_options: Dict[str, bool],
-        user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        session_data: dict[str, Any],
+        save_options: dict[str, bool],
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Persist session with user-selected partial saving options.
         Guarantees relational integrity without orphan records.
@@ -45,7 +47,7 @@ class SessionRepository:
                 id=session_id,
                 mode=session_data.get("mode", "GENERATE_AND_COMPARE"),
                 status=session_data.get("status", "COMPLETED"),
-                user_id=user_id
+                user_id=user_id,
             )
             self.db.add(session_rec)
 
@@ -59,13 +61,15 @@ class SessionRepository:
         # 2. Save Prompt if requested
         if opt_prompt and "input" in session_data:
             inp = session_data["input"]
-            prompt_rec = self.db.query(PromptRecord).filter(PromptRecord.session_id == session_id).first()
+            prompt_rec = (
+                self.db.query(PromptRecord).filter(PromptRecord.session_id == session_id).first()
+            )
             if not prompt_rec:
                 prompt_rec = PromptRecord(
                     id=f"prm-{uuid.uuid4().hex[:8]}",
                     session_id=session_id,
                     content=inp.get("prompt", ""),
-                    system_prompt=inp.get("system_prompt")
+                    system_prompt=inp.get("system_prompt"),
                 )
                 self.db.add(prompt_rec)
             else:
@@ -77,7 +81,9 @@ class SessionRepository:
         # 3. Save Answers if requested
         if opt_answers and "answers" in session_data:
             # Clear previous to prevent duplicates on update
-            self.db.query(ModelResponseRecord).filter(ModelResponseRecord.session_id == session_id).delete()
+            self.db.query(ModelResponseRecord).filter(
+                ModelResponseRecord.session_id == session_id
+            ).delete()
             for ans in session_data["answers"]:
                 resp_rec = ModelResponseRecord(
                     id=f"rsp-{uuid.uuid4().hex[:8]}",
@@ -91,7 +97,7 @@ class SessionRepository:
                     output_tokens=ans.get("output_tokens") if opt_metrics else None,
                     estimated_cost=ans.get("estimated_cost") if opt_metrics else None,
                     status="SUCCESS" if ans.get("success", True) else "FAILED",
-                    error_message=str(ans.get("error")) if ans.get("error") else None
+                    error_message=str(ans.get("error")) if ans.get("error") else None,
                 )
                 self.db.add(resp_rec)
         elif not opt_answers:
@@ -101,7 +107,9 @@ class SessionRepository:
 
         # 4. Save Comparisons and Evaluations if requested
         if opt_evaluations and "pairwise_comparisons" in session_data:
-            self.db.query(PairwiseComparisonRecord).filter(PairwiseComparisonRecord.session_id == session_id).delete()
+            self.db.query(PairwiseComparisonRecord).filter(
+                PairwiseComparisonRecord.session_id == session_id
+            ).delete()
             for comp in session_data["pairwise_comparisons"]:
                 comp_id = comp.get("comparison_id") or f"cmp-{uuid.uuid4().hex[:8]}"
                 m_a = comp.get("model_a", {})
@@ -116,7 +124,7 @@ class SessionRepository:
                     model_b_name=m_b.get("name", "Model B"),
                     winner=comp.get("winner_model_id"),
                     status="SUCCESS" if comp.get("success", True) else "FAILED",
-                    judge_latency=comp.get("judge_latency") if opt_metrics else None
+                    judge_latency=comp.get("judge_latency") if opt_metrics else None,
                 )
                 self.db.add(comp_rec)
 
@@ -145,7 +153,7 @@ class SessionRepository:
                         confidence=judge_res.get("confidence"),
                         reason=judge_res.get("reason"),
                         raw_judge_response=comp.get("raw_judge_response") if opt_raw else None,
-                        position_swap_result=comp.get("position_swap_check")
+                        position_swap_result=comp.get("position_swap_check"),
                     )
                     self.db.add(eval_rec)
         elif not opt_evaluations:
@@ -160,13 +168,9 @@ class SessionRepository:
             ).delete(synchronize_session=False)
 
         self.db.commit()
-        return {
-            "session_id": session_id,
-            "saved": True,
-            "saved_options": save_options
-        }
+        return {"session_id": session_id, "saved": True, "saved_options": save_options}
 
-    def get_session(self, session_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+    def get_session(self, session_id: str, user_id: str) -> dict[str, Any] | None:
         """Retrieve full details of a saved session."""
         session_rec = (
             self.db.query(SessionRecord)
@@ -180,7 +184,7 @@ class SessionRepository:
         if session_rec.prompt:
             prompt_data = {
                 "prompt": session_rec.prompt.content,
-                "system_prompt": session_rec.prompt.system_prompt
+                "system_prompt": session_rec.prompt.system_prompt,
             }
 
         answers_data = [
@@ -194,7 +198,7 @@ class SessionRepository:
                 "output_tokens": r.output_tokens,
                 "estimated_cost": r.estimated_cost,
                 "success": r.status == "SUCCESS",
-                "error": r.error_message
+                "error": r.error_message,
             }
             for r in session_rec.responses
         ]
@@ -209,12 +213,14 @@ class SessionRepository:
                 "status": c.status,
                 "judge_latency": c.judge_latency,
                 "judge_result": None,
-                "position_swap_check": None
+                "position_swap_check": None,
             }
             if c.evaluation:
                 ev = c.evaluation
                 entry["judge_result"] = {
-                    "winner": "A" if c.winner == c.model_a_id else ("B" if c.winner == c.model_b_id else "TIE"),
+                    "winner": "A"
+                    if c.winner == c.model_a_id
+                    else ("B" if c.winner == c.model_b_id else "TIE"),
                     "scores": {
                         "A": {
                             "correctness": ev.score_a_correctness,
@@ -222,7 +228,7 @@ class SessionRepository:
                             "completeness": ev.score_a_completeness,
                             "reasoning": ev.score_a_reasoning,
                             "clarity": ev.score_a_clarity,
-                            "final_score": ev.score_a_final
+                            "final_score": ev.score_a_final,
                         },
                         "B": {
                             "correctness": ev.score_b_correctness,
@@ -230,11 +236,11 @@ class SessionRepository:
                             "completeness": ev.score_b_completeness,
                             "reasoning": ev.score_b_reasoning,
                             "clarity": ev.score_b_clarity,
-                            "final_score": ev.score_b_final
-                        }
+                            "final_score": ev.score_b_final,
+                        },
                     },
                     "confidence": ev.confidence,
-                    "reason": ev.reason
+                    "reason": ev.reason,
                 }
                 entry["raw_judge_response"] = ev.raw_judge_response
                 entry["position_swap_check"] = ev.position_swap_result
@@ -251,41 +257,34 @@ class SessionRepository:
             "answers": answers_data,
             "pairwise_comparisons": comparisons_data,
             "rankings": session_rec.rankings_summary or [],
-            "metrics": session_rec.metrics_summary or {}
+            "metrics": session_rec.metrics_summary or {},
         }
 
     def list_sessions(
-        self,
-        limit: int = 50,
-        offset: int = 0,
-        user_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, limit: int = 50, offset: int = 0, user_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """List summary info for saved sessions. If user_id provided, filter by user."""
         query = self.db.query(SessionRecord)
         if user_id:
             query = query.filter(SessionRecord.user_id == user_id)
 
-        records = (
-            query
-            .order_by(SessionRecord.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+        records = query.order_by(SessionRecord.created_at.desc()).offset(offset).limit(limit).all()
 
         summaries = []
         for r in records:
             prompt_preview = r.prompt.content[:120] if r.prompt else "No prompt saved"
             models_list = [resp.model_name for resp in r.responses] if r.responses else []
-            summaries.append({
-                "session_id": r.id,
-                "mode": r.mode,
-                "status": r.status,
-                "prompt_preview": prompt_preview,
-                "models": models_list,
-                "rankings_count": len(r.rankings_summary) if r.rankings_summary else 0,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-                "saved_options": r.saved_options
-            })
+            summaries.append(
+                {
+                    "session_id": r.id,
+                    "mode": r.mode,
+                    "status": r.status,
+                    "prompt_preview": prompt_preview,
+                    "models": models_list,
+                    "rankings_count": len(r.rankings_summary) if r.rankings_summary else 0,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "saved_options": r.saved_options,
+                }
+            )
 
         return summaries

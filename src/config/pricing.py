@@ -1,11 +1,11 @@
 """Centralized LLM API pricing configuration."""
 
-from typing import Optional, Dict, Any
+from typing import Any
 
 PRICING_VERSION = "2025-02"
 PRICING_CURRENCY = "USD"
 
-MODEL_PRICING: Dict[str, Dict[str, Any]] = {
+MODEL_PRICING: dict[str, dict[str, Any]] = {
     # OpenAI
     "openai:gpt-4o": {
         "provider": "openai",
@@ -14,7 +14,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 10.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "openai:gpt-4o-mini": {
         "provider": "openai",
@@ -23,7 +23,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.60,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "openai:gpt-4.1": {
         "provider": "openai",
@@ -32,9 +32,8 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 12.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
-
     # Anthropic
     "anthropic:claude-3-5-sonnet": {
         "provider": "anthropic",
@@ -43,7 +42,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 15.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "anthropic:claude-3-5-haiku": {
         "provider": "anthropic",
@@ -52,9 +51,8 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 4.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
-
     # Google Gemini
     "gemini:gemini-1.5-pro": {
         "provider": "gemini",
@@ -63,7 +61,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 5.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "gemini:gemini-1.5-flash": {
         "provider": "gemini",
@@ -72,7 +70,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.30,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "gemini:gemini-2.0-flash": {
         "provider": "gemini",
@@ -81,9 +79,8 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.40,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
-
     # DeepSeek
     "deepseek:deepseek-chat": {
         "provider": "deepseek",
@@ -92,7 +89,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.28,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "deepseek:deepseek-reasoner": {
         "provider": "deepseek",
@@ -101,9 +98,8 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 2.19,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
-
     # Mistral
     "mistral:mistral-large-latest": {
         "provider": "mistral",
@@ -112,7 +108,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 6.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "mistral:mistral-small-latest": {
         "provider": "mistral",
@@ -121,9 +117,8 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.60,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
-
     # Ollama (Local open source = 0.00)
     "ollama:qwen2.5:7b": {
         "provider": "ollama",
@@ -132,7 +127,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "ollama:llama3.1:8b": {
         "provider": "ollama",
@@ -141,7 +136,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "ollama:deepseek-r1:8b": {
         "provider": "ollama",
@@ -150,9 +145,8 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
-
     # OpenRouter Free Tier ($0.00)
     "openrouter:google/gemini-2.0-flash-lite:free": {
         "provider": "openrouter",
@@ -161,7 +155,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "openrouter:meta-llama/llama-3.3-70b-instruct:free": {
         "provider": "openrouter",
@@ -170,7 +164,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "openrouter:deepseek/deepseek-r1:free": {
         "provider": "openrouter",
@@ -179,7 +173,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "openrouter:qwen/qwen-2.5-72b-instruct:free": {
         "provider": "openrouter",
@@ -188,7 +182,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "openrouter:nvidia/nemotron-3-super-120b-a12b:free": {
         "provider": "openrouter",
@@ -197,7 +191,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free": {
         "provider": "openrouter",
@@ -206,7 +200,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "openrouter:nvidia/nemotron-3.5-lightning:free": {
         "provider": "openrouter",
@@ -215,9 +209,8 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 0.0,
         "currency": PRICING_CURRENCY,
         "estimated": False,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
-
     # OpenRouter Paid Tier
     "openrouter:anthropic/claude-3.5-sonnet": {
         "provider": "openrouter",
@@ -226,7 +219,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 15.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "openrouter:openai/gpt-4o": {
         "provider": "openrouter",
@@ -235,9 +228,8 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 10.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
-
     # xAI Grok
     "grok:grok-2-latest": {
         "provider": "grok",
@@ -246,7 +238,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 10.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "grok:grok-2-vision-1212": {
         "provider": "grok",
@@ -255,7 +247,7 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 10.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
+        "pricing_date": PRICING_VERSION,
     },
     "grok:grok-beta": {
         "provider": "grok",
@@ -264,11 +256,11 @@ MODEL_PRICING: Dict[str, Dict[str, Any]] = {
         "output_price_per_million": 15.00,
         "currency": PRICING_CURRENCY,
         "estimated": True,
-        "pricing_date": PRICING_VERSION
-    }
+        "pricing_date": PRICING_VERSION,
+    },
 }
 
 
-def get_model_pricing(model_key: str) -> Optional[Dict[str, Any]]:
+def get_model_pricing(model_key: str) -> dict[str, Any] | None:
     """Retrieve pricing metadata for a given model key (e.g. 'openai:gpt-4o')."""
     return MODEL_PRICING.get(model_key)

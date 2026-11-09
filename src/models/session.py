@@ -1,12 +1,24 @@
+import enum
 import uuid
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
+
 from sqlalchemy import (
-    String, Text, DateTime, Float, Integer, Boolean, ForeignKey, Index, JSON, Enum as SQLEnum
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    Enum as SQLEnum,
+)
 from sqlalchemy.dialects.postgresql import UUID
-import enum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
 
@@ -21,25 +33,33 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    api_keys: Mapped[List["UserApiKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    api_keys: Mapped[list["UserApiKey"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class UserApiKey(Base):
     __tablename__ = "user_api_keys"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     api_key: Mapped[str] = mapped_column(Text, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     user: Mapped["User"] = relationship(back_populates="api_keys")
 
 
-class SessionStatus(str, enum.Enum):
+class SessionStatus(enum.StrEnum):
     PENDING = "PENDING"
     GENERATING = "GENERATING"
     EVALUATING = "EVALUATING"
@@ -49,7 +69,7 @@ class SessionStatus(str, enum.Enum):
     INSUFFICIENT_SUCCESSFUL_MODELS = "INSUFFICIENT_SUCCESSFUL_MODELS"
 
 
-class SessionMode(str, enum.Enum):
+class SessionMode(enum.StrEnum):
     GENERATE_AND_COMPARE = "GENERATE_AND_COMPARE"
     SINGLE_GENERATION = "SINGLE_GENERATION"
     MANUAL_COMPARE = "MANUAL_COMPARE"
@@ -60,19 +80,21 @@ class GenerationModel(Base):
     __tablename__ = "generation_models"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
     model_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    model_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    model_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     provider: Mapped[str] = mapped_column(String(100), nullable=False)
-    answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     latency_seconds: Mapped[float] = mapped_column(Float, default=0.0)
-    input_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    output_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    estimated_cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    cost_source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    estimated_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cost_source: Mapped[str | None] = mapped_column(String(50), nullable=True)
     success: Mapped[bool] = mapped_column(Boolean, default=False)
-    error_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_metadata: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -88,21 +110,23 @@ class Comparison(Base):
     __tablename__ = "comparisons"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
     comparison_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     pair_number: Mapped[int] = mapped_column(Integer, nullable=False)
     model_a_id: Mapped[str] = mapped_column(String(255), nullable=False)
     model_a_name: Mapped[str] = mapped_column(String(255), nullable=False)
     model_b_id: Mapped[str] = mapped_column(String(255), nullable=False)
     model_b_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    winner_model_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    winner_model_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     success: Mapped[bool] = mapped_column(Boolean, default=False)
-    judge_latency: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    judge_result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    raw_judge_response: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    error_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    position_swap_check: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    judge_latency: Mapped[float | None] = mapped_column(Float, nullable=True)
+    judge_result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    raw_judge_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    position_swap_check: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     session: Mapped["Session"] = relationship(back_populates="comparisons")
@@ -117,7 +141,9 @@ class Ranking(Base):
     __tablename__ = "rankings"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
     rank: Mapped[int] = mapped_column(Integer, nullable=False)
     model_id: Mapped[str] = mapped_column(String(255), nullable=False)
     model_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -141,7 +167,12 @@ class Metrics(Base):
     __tablename__ = "metrics"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, unique=True)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
     total_models: Mapped[int] = mapped_column(Integer, default=0)
     successful_generations: Mapped[int] = mapped_column(Integer, default=0)
     failed_generations: Mapped[int] = mapped_column(Integer, default=0)
@@ -169,20 +200,32 @@ class Session(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     mode: Mapped[SessionMode] = mapped_column(SQLEnum(SessionMode), nullable=False)
-    status: Mapped[SessionStatus] = mapped_column(SQLEnum(SessionStatus), default=SessionStatus.PENDING, nullable=False)
+    status: Mapped[SessionStatus] = mapped_column(
+        SQLEnum(SessionStatus), default=SessionStatus.PENDING, nullable=False
+    )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    system_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    selected_models: Mapped[List[str]] = mapped_column(JSON, default=list)
+    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    selected_models: Mapped[list[str]] = mapped_column(JSON, default=list)
     position_swap_check: Mapped[bool] = mapped_column(Boolean, default=False)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    generations: Mapped[List["GenerationModel"]] = relationship(back_populates="session", cascade="all, delete-orphan")
-    comparisons: Mapped[List["Comparison"]] = relationship(back_populates="session", cascade="all, delete-orphan")
-    rankings: Mapped[List["Ranking"]] = relationship(back_populates="session", cascade="all, delete-orphan")
-    metrics: Mapped[Optional["Metrics"]] = relationship(back_populates="session", cascade="all, delete-orphan", uselist=False)
+    generations: Mapped[list["GenerationModel"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
+    )
+    comparisons: Mapped[list["Comparison"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
+    )
+    rankings: Mapped[list["Ranking"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
+    )
+    metrics: Mapped[Optional["Metrics"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", uselist=False
+    )
 
     __table_args__ = (
         Index("ix_sessions_status", "status"),

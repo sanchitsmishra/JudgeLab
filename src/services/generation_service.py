@@ -2,19 +2,20 @@
 
 import asyncio
 import time
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from src.config.settings import settings
-from src.providers.base import BaseProvider, ProviderResponse, ProviderError, GenerationConfig
-from src.providers.registry import ModelRegistry, model_registry
-from src.services.cost_calculator import CostCalculator
-from src.providers.openai_provider import OpenAIProvider
 from src.providers.anthropic_provider import AnthropicProvider
-from src.providers.gemini_provider import GeminiProvider
+from src.providers.base import BaseProvider, GenerationConfig, ProviderError, ProviderResponse
 from src.providers.deepseek_provider import DeepSeekProvider
+from src.providers.gemini_provider import GeminiProvider
+from src.providers.grok_provider import GrokProvider
 from src.providers.mistral_provider import MistralProvider
 from src.providers.ollama_provider import OllamaProvider
+from src.providers.openai_provider import OpenAIProvider
 from src.providers.openrouter_provider import OpenRouterProvider
-from src.providers.grok_provider import GrokProvider
+from src.providers.registry import ModelRegistry, model_registry
+from src.services.cost_calculator import CostCalculator
 
 
 class GenerationServiceError(Exception):
@@ -27,10 +28,10 @@ class GenerationServiceError(Exception):
 class GenerationService:
     """Handles prompt validation, model validation, and concurrent generation dispatch."""
 
-    def __init__(self, registry: Optional[ModelRegistry] = None):
+    def __init__(self, registry: ModelRegistry | None = None):
         self.registry = registry or model_registry
 
-    def validate_request(self, models: List[str], prompt: str) -> None:
+    def validate_request(self, models: list[str], prompt: str) -> None:
         """Validate input parameters against business rules."""
         if not prompt or not prompt.strip():
             raise GenerationServiceError("Prompt cannot be empty.", "EmptyPromptError")
@@ -38,34 +39,33 @@ class GenerationService:
         if len(prompt) > 200_000:
             raise GenerationServiceError(
                 f"Prompt exceeds maximum character length limit (length: {len(prompt)}, max: 200000).",
-                "PromptTooLargeError"
+                "PromptTooLargeError",
             )
 
         if len(models) < settings.min_selected_models:
             raise GenerationServiceError(
                 f"At least {settings.min_selected_models} models must be selected (got {len(models)}).",
-                "InsufficientModelsError"
+                "InsufficientModelsError",
             )
 
         if len(models) > settings.max_selected_models:
             raise GenerationServiceError(
                 f"At most {settings.max_selected_models} models can be selected (got {len(models)}).",
-                "ExcessiveModelsError"
+                "ExcessiveModelsError",
             )
 
         if len(set(models)) != len(models):
             raise GenerationServiceError(
-                "Duplicate models are not permitted in comparison.",
-                "DuplicateModelsError"
+                "Duplicate models are not permitted in comparison.", "DuplicateModelsError"
             )
 
     async def _invoke_single_model(
         self,
         model_id: str,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        generation_config: Optional[GenerationConfig] = None,
-        custom_api_keys: Optional[Dict[str, str]] = None
+        system_prompt: str | None = None,
+        generation_config: GenerationConfig | None = None,
+        custom_api_keys: dict[str, str] | None = None,
     ) -> ProviderResponse:
         """Dispatch a single model generation request with timeout protection."""
         # Parse provider and model name
@@ -76,7 +76,7 @@ class GenerationService:
             provider_name, clean_model = "unknown", model_id
 
         # Check if user provided a custom key for this provider
-        provider: Optional[BaseProvider] = None
+        provider: BaseProvider | None = None
         if custom_api_keys and provider_name in custom_api_keys:
             custom_key = custom_api_keys[provider_name]
             if custom_key and custom_key.strip():
@@ -111,8 +111,8 @@ class GenerationService:
                 error=ProviderError(
                     type="ProviderNotFoundError",
                     message=f"No provider registered for '{provider_name}'",
-                    retryable=False
-                )
+                    retryable=False,
+                ),
             )
 
         try:
@@ -122,20 +122,20 @@ class GenerationService:
                     model_name=clean_model,
                     prompt=prompt,
                     system_prompt=system_prompt,
-                    generation_config=generation_config
+                    generation_config=generation_config,
                 ),
-                timeout=settings.generation_timeout_seconds
+                timeout=settings.generation_timeout_seconds,
             )
             # Re-verify and attach calculated cost if not set
             if response.success and response.estimated_cost is None:
                 response.estimated_cost = CostCalculator.calculate_cost(
                     model_id=model_id,
                     input_tokens=response.input_tokens,
-                    output_tokens=response.output_tokens
+                    output_tokens=response.output_tokens,
                 )
             return response
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             elapsed = time.perf_counter() - start_time
             return ProviderResponse(
                 success=False,
@@ -146,8 +146,8 @@ class GenerationService:
                 error=ProviderError(
                     type="TimeoutError",
                     message=f"Model generation timed out after {settings.generation_timeout_seconds} seconds.",
-                    retryable=True
-                )
+                    retryable=True,
+                ),
             )
         except Exception as exc:
             elapsed = time.perf_counter() - start_time
@@ -157,21 +157,17 @@ class GenerationService:
                 provider=provider_name,
                 answer=None,
                 latency_seconds=elapsed,
-                error=ProviderError(
-                    type=type(exc).__name__,
-                    message=str(exc),
-                    retryable=False
-                )
+                error=ProviderError(type=type(exc).__name__, message=str(exc), retryable=False),
             )
 
     async def generate_answers(
         self,
-        models: List[str],
+        models: list[str],
         prompt: str,
-        system_prompt: Optional[str] = None,
-        generation_config: Optional[GenerationConfig] = None,
-        custom_api_keys: Optional[Dict[str, str]] = None
-    ) -> Dict[str, Any]:
+        system_prompt: str | None = None,
+        generation_config: GenerationConfig | None = None,
+        custom_api_keys: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """
         Concurrently run generation across all selected models.
         Returns aggregated responses and success status.
@@ -184,12 +180,12 @@ class GenerationService:
                 prompt=prompt,
                 system_prompt=system_prompt,
                 generation_config=generation_config,
-                custom_api_keys=custom_api_keys
+                custom_api_keys=custom_api_keys,
             )
             for model_id in models
         ]
 
-        responses: List[ProviderResponse] = await asyncio.gather(*tasks)
+        responses: list[ProviderResponse] = await asyncio.gather(*tasks)
 
         successful = [r for r in responses if r.success and r.answer and r.answer.strip()]
         failed = [r for r in responses if not r.success or not r.answer]
@@ -203,5 +199,5 @@ class GenerationService:
             "successful_count": len(successful),
             "failed_count": len(failed),
             "has_sufficient_models": has_sufficient_models,
-            "status": "SUFFICIENT" if has_sufficient_models else "INSUFFICIENT_SUCCESSFUL_MODELS"
+            "status": "SUFFICIENT" if has_sufficient_models else "INSUFFICIENT_SUCCESSFUL_MODELS",
         }

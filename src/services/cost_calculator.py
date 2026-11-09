@@ -1,124 +1,7 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 """Cost calculation service for model invocations and token usage."""
 
-from typing import Optional, Dict, Any
+from typing import Any
+
 from src.config.pricing import get_model_pricing
 
 
@@ -127,10 +10,8 @@ class CostCalculator:
 
     @staticmethod
     def calculate_cost(
-        model_id: str,
-        input_tokens: Optional[int],
-        output_tokens: Optional[int]
-    ) -> Optional[float]:
+        model_id: str, input_tokens: int | None, output_tokens: int | None
+    ) -> float | None:
         """
         Calculate total cost for a model invocation.
         Returns None if input_tokens or output_tokens are None or if pricing is not configured.
@@ -153,10 +34,6 @@ class CostCalculator:
         return round(in_cost + out_cost, 6)
 
     @staticmethod
-    def format_manual_cost() -> Dict[str, Any]:
+    def format_manual_cost() -> dict[str, Any]:
         """Return standardized cost descriptor for manually provided answers."""
-        return {
-            "estimated_cost": None,
-            "cost_source": "manual input",
-            "is_manual": True
-        }
+        return {"estimated_cost": None, "cost_source": "manual input", "is_manual": True}

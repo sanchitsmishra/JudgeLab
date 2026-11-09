@@ -1,12 +1,14 @@
 """Hugging Face Remote Qwen Judge Evaluator for free tier Spaces and Inference API."""
 
 import json
-import re
 import logging
-from typing import Optional, Dict, Any
+import re
+from typing import Any
+
 import httpx
-from src.judge.prompts import JUDGE_SYSTEM_PROMPT
+
 from src.config.settings import settings
+from src.judge.prompts import JUDGE_SYSTEM_PROMPT
 
 logger = logging.getLogger("llm_judge.hf_evaluator")
 
@@ -22,14 +24,14 @@ class HuggingFaceJudgeEvaluator:
         "relevance": 0.20,
         "completeness": 0.15,
         "reasoning": 0.15,
-        "clarity": 0.10
+        "clarity": 0.10,
     }
 
     def __init__(
         self,
-        api_url: Optional[str] = None,
-        token: Optional[str] = None,
-        timeout: Optional[float] = None
+        api_url: str | None = None,
+        token: str | None = None,
+        timeout: float | None = None,
     ):
         self.api_url = (api_url or settings.qwen_hf_api_url or "").rstrip("/")
         self.token = token or settings.qwen_hf_token
@@ -56,10 +58,10 @@ Return ONLY valid JSON matching this schema:
 }}"""
         return [
             {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-            {"role": "user", "content": user_content}
+            {"role": "user", "content": user_content},
         ]
 
-    def _calculate_final_score(self, score_dict: Dict[str, Any]) -> float:
+    def _calculate_final_score(self, score_dict: dict[str, Any]) -> float:
         total = 0.0
         for criterion, weight in self.CRITERIA.items():
             val = float(score_dict.get(criterion, 7))
@@ -82,7 +84,7 @@ Return ONLY valid JSON matching this schema:
             return 0.70
         return 0.55
 
-    def _parse_json_response(self, text: str) -> Dict[str, Any]:
+    def _parse_json_response(self, text: str) -> dict[str, Any]:
         """Extract and parse JSON from Qwen response text."""
         # Try direct parse
         try:
@@ -103,7 +105,7 @@ Return ONLY valid JSON matching this schema:
         end = text.rfind("}")
         if start != -1 and end != -1 and end > start:
             try:
-                return json.loads(text[start:end+1])
+                return json.loads(text[start : end + 1])
             except json.JSONDecodeError:
                 pass
 
@@ -117,15 +119,17 @@ Return ONLY valid JSON matching this schema:
             headers["Authorization"] = f"Bearer {self.token}"
 
         endpoint = self.api_url
-        if not endpoint.endswith("/chat/completions") and not endpoint.endswith("/v1"):
-            if "hf.space" in endpoint or "localhost" in endpoint or "127.0.0.1" in endpoint:
-                endpoint = f"{endpoint}/v1/chat/completions"
-
+        if (
+            not endpoint.endswith("/chat/completions")
+            and not endpoint.endswith("/v1")
+            and ("hf.space" in endpoint or "localhost" in endpoint or "127.0.0.1" in endpoint)
+        ):
+            endpoint = f"{endpoint}/v1/chat/completions"
         payload = {
             "model": "qwen-judge",
             "messages": messages,
             "temperature": 0.0,
-            "max_tokens": 400
+            "max_tokens": 400,
         }
 
         with httpx.Client(timeout=self.timeout) as client:
@@ -158,22 +162,21 @@ Return ONLY valid JSON matching this schema:
 
         winner = self._determine_winner(score_a_final, score_b_final)
         confidence = self._calculate_confidence(score_a_final, score_b_final)
-        reason = s_a.get("feedback", "") if winner == "A" else (
-            s_b.get("feedback", "") if winner == "B" else "Both answers demonstrated comparable technical depth."
+        reason = (
+            s_a.get("feedback", "")
+            if winner == "A"
+            else (
+                s_b.get("feedback", "")
+                if winner == "B"
+                else "Both answers demonstrated comparable technical depth."
+            )
         )
 
         result = {
             "winner": winner,
-            "scores": {
-                "A": s_a,
-                "B": s_b
-            },
+            "scores": {"A": s_a, "B": s_b},
             "confidence": confidence,
-            "reason": reason
+            "reason": reason,
         }
 
-        return {
-            "result": result,
-            "raw_response": raw_text,
-            "attempts": 1
-        }
+        return {"result": result, "raw_response": raw_text, "attempts": 1}

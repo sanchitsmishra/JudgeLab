@@ -1,7 +1,9 @@
 """Celery application configuration."""
 
 import logging
+
 from celery import Celery
+
 from src.config.settings import settings
 
 logger = logging.getLogger("llm_judge.worker")

@@ -1,7 +1,9 @@
 import logging
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
-from src.config.settings import settings, get_async_database_url
+
+from src.config.settings import get_async_database_url, settings
 from src.models.base import Base
 
 logger = logging.getLogger(__name__)

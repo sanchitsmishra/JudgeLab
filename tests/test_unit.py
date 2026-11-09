@@ -1,13 +1,13 @@
 import pytest
-import asyncio
-from src.services.cost_calculator import CostCalculator
-from src.services.generation_service import GenerationService, GenerationServiceError
-from src.services.comparison_service import ComparisonService
+
 from src.evaluation.pairwise import PairwiseEvaluator
 from src.evaluation.ranking import RankingEngine
+from src.judge.model_loader import MockJudgeEvaluator
 from src.providers.mock_provider import MockProvider
 from src.providers.registry import ModelRegistry
-from src.judge.model_loader import MockJudgeEvaluator
+from src.services.comparison_service import ComparisonService
+from src.services.cost_calculator import CostCalculator
+from src.services.generation_service import GenerationService, GenerationServiceError
 
 
 def test_cost_calculator():
@@ -42,7 +42,7 @@ def test_model_selection_validation():
     with pytest.raises(GenerationServiceError) as exc:
         service.validate_request(
             ["mock:model-a", "mock:model-b", "mock:model-c", "mock:model-d", "extra:model"],
-            "Valid prompt"
+            "Valid prompt",
         )
     assert "At most 4 models" in str(exc.value)
 
@@ -60,7 +60,9 @@ def test_model_selection_validation():
     service.validate_request(["mock:model-a"], "Valid prompt")
     service.validate_request(["mock:model-a", "mock:model-b"], "Valid prompt")
     service.validate_request(["mock:model-a", "mock:model-b", "mock:model-c"], "Valid prompt")
-    service.validate_request(["mock:model-a", "mock:model-b", "mock:model-c", "mock:model-d"], "Valid prompt")
+    service.validate_request(
+        ["mock:model-a", "mock:model-b", "mock:model-c", "mock:model-d"], "Valid prompt"
+    )
 
 
 @pytest.mark.asyncio
@@ -70,20 +72,24 @@ async def test_pairwise_combinations():
     # 2 models -> 1 comparison
     answers_2 = [
         {"model_id": "m1", "model_name": "M1", "answer": "Answer 1 with detail."},
-        {"model_id": "m2", "model_name": "M2", "answer": "Answer 2 with code."}
+        {"model_id": "m2", "model_name": "M2", "answer": "Answer 2 with code."},
     ]
     res_2 = await evaluator.evaluate_all_pairs("Problem?", answers_2)
     assert res_2["total_comparisons"] == 1
     assert res_2["successful_comparisons"] == 1
 
     # 3 models -> 3 comparisons
-    answers_3 = answers_2 + [{"model_id": "m3", "model_name": "M3", "answer": "Answer 3 with architecture."}]
+    answers_3 = answers_2 + [
+        {"model_id": "m3", "model_name": "M3", "answer": "Answer 3 with architecture."}
+    ]
     res_3 = await evaluator.evaluate_all_pairs("Problem?", answers_3)
     assert res_3["total_comparisons"] == 3
     assert res_3["successful_comparisons"] == 3
 
     # 4 models -> 6 comparisons
-    answers_4 = answers_3 + [{"model_id": "m4", "model_name": "M4", "answer": "Answer 4 with breakdown."}]
+    answers_4 = answers_3 + [
+        {"model_id": "m4", "model_name": "M4", "answer": "Answer 4 with breakdown."}
+    ]
     res_4 = await evaluator.evaluate_all_pairs("Problem?", answers_4)
     assert res_4["total_comparisons"] == 6
     assert res_4["successful_comparisons"] == 6
@@ -93,8 +99,12 @@ async def test_pairwise_combinations():
 async def test_position_swap_check():
     evaluator = PairwiseEvaluator(judge=MockJudgeEvaluator())
     answers = [
-        {"model_id": "m1", "model_name": "M1", "answer": "Comprehensive code answer ```python print(1)```"},
-        {"model_id": "m2", "model_name": "M2", "answer": "Short answer."}
+        {
+            "model_id": "m1",
+            "model_name": "M1",
+            "answer": "Comprehensive code answer ```python print(1)```",
+        },
+        {"model_id": "m2", "model_name": "M2", "answer": "Short answer."},
     ]
     res = await evaluator.evaluate_all_pairs("Problem?", answers, position_swap_check=True)
     comp = res["comparisons"][0]
@@ -115,7 +125,7 @@ async def test_partial_failures():
     # 4 selected: 2 succeed, 2 fail -> has_sufficient_models True
     res = await gen_service.generate_answers(
         models=["mock:model-a", "mock:model-b", "mock:model-c", "mock:model-d"],
-        prompt="Design a distributed cache"
+        prompt="Design a distributed cache",
     )
     assert res["successful_count"] == 2
     assert res["failed_count"] == 2
@@ -126,7 +136,7 @@ async def test_partial_failures():
     registry.register_provider(mock_prov_all_fail)
     res_fail = await gen_service.generate_answers(
         models=["mock:model-a", "mock:model-b", "mock:model-c", "mock:model-d"],
-        prompt="Design a distributed cache"
+        prompt="Design a distributed cache",
     )
     assert res_fail["successful_count"] == 0
     assert res_fail["has_sufficient_models"] is False
@@ -144,10 +154,24 @@ def test_ranking_engine():
             "judge_result": {
                 "winner": "A",
                 "scores": {
-                    "A": {"correctness": 10, "relevance": 9, "completeness": 9, "reasoning": 10, "clarity": 9, "final_score": 9.6},
-                    "B": {"correctness": 7, "relevance": 8, "completeness": 7, "reasoning": 7, "clarity": 8, "final_score": 7.3}
-                }
-            }
+                    "A": {
+                        "correctness": 10,
+                        "relevance": 9,
+                        "completeness": 9,
+                        "reasoning": 10,
+                        "clarity": 9,
+                        "final_score": 9.6,
+                    },
+                    "B": {
+                        "correctness": 7,
+                        "relevance": 8,
+                        "completeness": 7,
+                        "reasoning": 7,
+                        "clarity": 8,
+                        "final_score": 7.3,
+                    },
+                },
+            },
         },
         {
             "model_a": {"model_id": "m1", "name": "Model 1"},
@@ -157,10 +181,24 @@ def test_ranking_engine():
             "judge_result": {
                 "winner": "A",
                 "scores": {
-                    "A": {"correctness": 9, "relevance": 9, "completeness": 9, "reasoning": 9, "clarity": 9, "final_score": 9.0},
-                    "B": {"correctness": 8, "relevance": 8, "completeness": 8, "reasoning": 8, "clarity": 8, "final_score": 8.0}
-                }
-            }
+                    "A": {
+                        "correctness": 9,
+                        "relevance": 9,
+                        "completeness": 9,
+                        "reasoning": 9,
+                        "clarity": 9,
+                        "final_score": 9.0,
+                    },
+                    "B": {
+                        "correctness": 8,
+                        "relevance": 8,
+                        "completeness": 8,
+                        "reasoning": 8,
+                        "clarity": 8,
+                        "final_score": 8.0,
+                    },
+                },
+            },
         },
         {
             "model_a": {"model_id": "m2", "name": "Model 2"},
@@ -170,11 +208,25 @@ def test_ranking_engine():
             "judge_result": {
                 "winner": "B",
                 "scores": {
-                    "A": {"correctness": 7, "relevance": 7, "completeness": 7, "reasoning": 7, "clarity": 7, "final_score": 7.0},
-                    "B": {"correctness": 8, "relevance": 8, "completeness": 8, "reasoning": 8, "clarity": 8, "final_score": 8.0}
-                }
-            }
-        }
+                    "A": {
+                        "correctness": 7,
+                        "relevance": 7,
+                        "completeness": 7,
+                        "reasoning": 7,
+                        "clarity": 7,
+                        "final_score": 7.0,
+                    },
+                    "B": {
+                        "correctness": 8,
+                        "relevance": 8,
+                        "completeness": 8,
+                        "reasoning": 8,
+                        "clarity": 8,
+                        "final_score": 8.0,
+                    },
+                },
+            },
+        },
     ]
 
     rankings = RankingEngine.rank_models(comparisons)
@@ -207,9 +259,12 @@ async def test_comparison_service_manual_and_generate():
     manual_report = await service.run_manual_compare(
         problem="Explain binary search complexity",
         answers=[
-            {"model_name": "Candidate A", "answer": "Binary search is O(log n) because search space halves."},
-            {"model_name": "Candidate B", "answer": "Binary search is O(n) in the worst case."}
-        ]
+            {
+                "model_name": "Candidate A",
+                "answer": "Binary search is O(log n) because search space halves.",
+            },
+            {"model_name": "Candidate B", "answer": "Binary search is O(n) in the worst case."},
+        ],
     )
     assert manual_report["status"] == "COMPLETED"
     assert manual_report["mode"] == "MANUAL_COMPARE"
@@ -219,7 +274,7 @@ async def test_comparison_service_manual_and_generate():
     # Mode 1: Generate and Compare with mock models
     gen_report = await service.run_generate_and_compare(
         models=["mock:model-a", "mock:model-b", "mock:model-c"],
-        prompt="Design a distributed key-value store"
+        prompt="Design a distributed key-value store",
     )
     assert gen_report["status"] in ["COMPLETED", "COMPLETED_WITH_WARNINGS"]
     assert gen_report["mode"] == "GENERATE_AND_COMPARE"
@@ -231,7 +286,7 @@ async def test_comparison_service_manual_and_generate():
 def test_database_selective_persistence():
     import uuid
 
-    from src.database import init_db, SessionLocal, SessionRepository
+    from src.database import SessionLocal, SessionRepository, init_db
 
     init_db()
     db = SessionLocal()
@@ -243,8 +298,28 @@ def test_database_selective_persistence():
         "status": "COMPLETED",
         "input": {"prompt": "What is Raft consensus?", "system_prompt": None},
         "answers": [
-            {"model_id": "m1", "model_name": "M1", "provider": "mock", "answer": "Raft is consensus algorithm", "latency_seconds": 1.2, "input_tokens": 10, "output_tokens": 20, "estimated_cost": 0.001, "success": True},
-            {"model_id": "m2", "model_name": "M2", "provider": "mock", "answer": "Raft uses leader election", "latency_seconds": 1.5, "input_tokens": 10, "output_tokens": 25, "estimated_cost": 0.001, "success": True}
+            {
+                "model_id": "m1",
+                "model_name": "M1",
+                "provider": "mock",
+                "answer": "Raft is consensus algorithm",
+                "latency_seconds": 1.2,
+                "input_tokens": 10,
+                "output_tokens": 20,
+                "estimated_cost": 0.001,
+                "success": True,
+            },
+            {
+                "model_id": "m2",
+                "model_name": "M2",
+                "provider": "mock",
+                "answer": "Raft uses leader election",
+                "latency_seconds": 1.5,
+                "input_tokens": 10,
+                "output_tokens": 25,
+                "estimated_cost": 0.001,
+                "success": True,
+            },
         ],
         "pairwise_comparisons": [
             {
@@ -257,21 +332,41 @@ def test_database_selective_persistence():
                 "judge_result": {
                     "winner": "A",
                     "scores": {
-                        "A": {"correctness": 9, "relevance": 9, "completeness": 9, "reasoning": 9, "clarity": 9, "final_score": 9.0},
-                        "B": {"correctness": 8, "relevance": 8, "completeness": 8, "reasoning": 8, "clarity": 8, "final_score": 8.0}
+                        "A": {
+                            "correctness": 9,
+                            "relevance": 9,
+                            "completeness": 9,
+                            "reasoning": 9,
+                            "clarity": 9,
+                            "final_score": 9.0,
+                        },
+                        "B": {
+                            "correctness": 8,
+                            "relevance": 8,
+                            "completeness": 8,
+                            "reasoning": 8,
+                            "clarity": 8,
+                            "final_score": 8.0,
+                        },
                     },
                     "confidence": 0.75,
-                    "reason": "Good"
+                    "reason": "Good",
                 },
-                "raw_judge_response": '{"A": ...}'
+                "raw_judge_response": '{"A": ...}',
             }
         ],
         "rankings": [{"rank": 1, "model_id": "m1"}],
-        "metrics": {"total_session_latency_seconds": 2.5}
+        "metrics": {"total_session_latency_seconds": 2.5},
     }
 
     # Selective save: only prompt and answers, NOT evaluations, NOT metrics
-    save_opts = {"prompt": True, "answers": True, "evaluations": False, "metrics": False, "raw_responses": False}
+    save_opts = {
+        "prompt": True,
+        "answers": True,
+        "evaluations": False,
+        "metrics": False,
+        "raw_responses": False,
+    }
     session_id = f"test-sess-{uuid.uuid4().hex}"
     repo.save_session(session_id, test_data, save_opts, user_id="unit-test-user")
 
@@ -292,12 +387,12 @@ def test_database_selective_persistence():
 
 @pytest.mark.asyncio
 async def test_real_providers_graceful_missing_key():
-    from src.providers.openai_provider import OpenAIProvider
     from src.providers.anthropic_provider import AnthropicProvider
-    from src.providers.gemini_provider import GeminiProvider
     from src.providers.deepseek_provider import DeepSeekProvider
+    from src.providers.gemini_provider import GeminiProvider
     from src.providers.mistral_provider import MistralProvider
     from src.providers.ollama_provider import OllamaProvider
+    from src.providers.openai_provider import OpenAIProvider
 
     # OpenAI missing key
     oa = OpenAIProvider(api_key="")
@@ -335,5 +430,3 @@ async def test_real_providers_graceful_missing_key():
     res_ollama = await ollama.generate("qwen2.5:7b", "Hello")
     assert res_ollama.success is False
     assert res_ollama.error.type in ["ConnectionRefusedError", "ConnectError"]
-
-

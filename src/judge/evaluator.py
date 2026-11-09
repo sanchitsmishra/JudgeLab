@@ -22,13 +22,7 @@ class JudgeEvaluator:
     HF_SPACE = "Anmol2507/LLM_as_Judge_API"
     API_NAME = "/judge"
 
-    def __init__(
-        self,
-        model=None,
-        tokenizer=None,
-        max_new_tokens=32,
-        max_retries=1
-    ):
+    def __init__(self, model=None, tokenizer=None, max_new_tokens=32, max_retries=1):
         """
         model and tokenizer are kept as optional arguments for
         backward compatibility with the existing project.
@@ -49,22 +43,14 @@ class JudgeEvaluator:
     # REMOTE GENERATION
     # ========================================================
 
-    def _generate(
-        self,
-        problem,
-        answer_a,
-        answer_b
-    ):
+    def _generate(self, problem, answer_a, answer_b):
         """
         Send the problem and two answers to the
         Hugging Face judge API.
         """
 
         response = self.client.predict(
-            problem=problem,
-            answer_a=answer_a,
-            answer_b=answer_b,
-            api_name=self.API_NAME
+            problem=problem, answer_a=answer_a, answer_b=answer_b, api_name=self.API_NAME
         )
 
         # Gradio normally returns the output as a string.
@@ -92,9 +78,7 @@ class JudgeEvaluator:
         """
 
         if not response:
-            raise ValueError(
-                "Judge returned an empty response."
-            )
+            raise ValueError("Judge returned an empty response.")
 
         response = response.strip()
 
@@ -111,17 +95,9 @@ class JudgeEvaluator:
         # Case 2: Markdown code block
         # ----------------------------------------------------
 
-        cleaned = re.sub(
-            r"```(?:json)?",
-            "",
-            response,
-            flags=re.IGNORECASE
-        )
+        cleaned = re.sub(r"```(?:json)?", "", response, flags=re.IGNORECASE)
 
-        cleaned = cleaned.replace(
-            "```",
-            ""
-        ).strip()
+        cleaned = cleaned.replace("```", "").strip()
 
         try:
             return json.loads(cleaned)
@@ -132,77 +108,52 @@ class JudgeEvaluator:
         # Case 3: JSON embedded in text
         # ----------------------------------------------------
 
-        match = re.search(
-            r"\{.*\}",
-            cleaned,
-            re.DOTALL
-        )
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
 
         if not match:
-            raise ValueError(
-                "Judge did not return valid JSON."
-            )
+            raise ValueError("Judge did not return valid JSON.")
 
         try:
             return json.loads(match.group())
         except json.JSONDecodeError as error:
-            raise ValueError(
-                f"Failed to parse judge JSON: {error}"
-            ) from error
+            raise ValueError(f"Failed to parse judge JSON: {error}") from error
 
     # ========================================================
     # RESPONSE VALIDATION
     # ========================================================
 
-    def _validate_response(
-        self,
-        response
-    ):
+    def _validate_response(self, response):
         """
         Validate the correctness-only response from
         the fine-tuned judge.
         """
 
         if not isinstance(response, dict):
-            raise ValueError(
-                "Judge response must be a JSON object."
-            )
+            raise ValueError("Judge response must be a JSON object.")
 
         # ----------------------------------------------------
         # Exactly A and B should be present.
         # ----------------------------------------------------
 
         if set(response.keys()) != {"A", "B"}:
-            raise ValueError(
-                'Judge response must contain exactly '
-                '"A" and "B".'
-            )
+            raise ValueError('Judge response must contain exactly "A" and "B".')
 
         # ----------------------------------------------------
         # Validate labels.
         # ----------------------------------------------------
 
-        allowed_labels = {
-            "correct",
-            "incorrect"
-        }
+        allowed_labels = {"correct", "incorrect"}
 
         for candidate in ["A", "B"]:
-
             value = response[candidate]
 
             if not isinstance(value, str):
-                raise ValueError(
-                    f"{candidate} must be a string."
-                )
+                raise ValueError(f"{candidate} must be a string.")
 
             value = value.strip().lower()
 
             if value not in allowed_labels:
-                raise ValueError(
-                    f"{candidate} must be either "
-                    '"correct" or "incorrect".'
-                )
+                raise ValueError(f'{candidate} must be either "correct" or "incorrect".')
 
             response[candidate] = value
 
@@ -212,21 +163,14 @@ class JudgeEvaluator:
     # DETERMINE WINNER
     # ========================================================
 
-    def _determine_winner(
-        self,
-        response
-    ):
+    def _determine_winner(self, response):
         """
         Determine winner from correctness labels.
         """
 
-        a_correct = (
-            response["A"] == "correct"
-        )
+        a_correct = response["A"] == "correct"
 
-        b_correct = (
-            response["B"] == "correct"
-        )
+        b_correct = response["B"] == "correct"
 
         if a_correct and not b_correct:
             return "A"
@@ -241,51 +185,29 @@ class JudgeEvaluator:
     # BUILD RESULT
     # ========================================================
 
-    def _build_result(
-        self,
-        response
-    ):
+    def _build_result(self, response):
         """
         Convert the native judge response into the
         project's existing result structure.
         """
 
-        winner = self._determine_winner(
-            response
-        )
+        winner = self._determine_winner(response)
 
         # ----------------------------------------------------
         # Generate a concise reason.
         # ----------------------------------------------------
 
         if winner == "A":
-
-            reason = (
-                "Answer A was judged correct while "
-                "Answer B was judged incorrect."
-            )
+            reason = "Answer A was judged correct while Answer B was judged incorrect."
 
         elif winner == "B":
+            reason = "Answer B was judged correct while Answer A was judged incorrect."
 
-            reason = (
-                "Answer B was judged correct while "
-                "Answer A was judged incorrect."
-            )
-
-        elif (
-            response["A"] == "correct"
-            and response["B"] == "correct"
-        ):
-
-            reason = (
-                "Both answers were judged correct."
-            )
+        elif response["A"] == "correct" and response["B"] == "correct":
+            reason = "Both answers were judged correct."
 
         else:
-
-            reason = (
-                "Both answers were judged incorrect."
-            )
+            reason = "Both answers were judged incorrect."
 
         # ----------------------------------------------------
         # Compatibility structure.
@@ -295,18 +217,8 @@ class JudgeEvaluator:
         # ----------------------------------------------------
 
         scores = {
-            "A": {
-                "correctness": (
-                    1 if response["A"] == "correct" else 0
-                ),
-                "label": response["A"]
-            },
-            "B": {
-                "correctness": (
-                    1 if response["B"] == "correct" else 0
-                ),
-                "label": response["B"]
-            }
+            "A": {"correctness": (1 if response["A"] == "correct" else 0), "label": response["A"]},
+            "B": {"correctness": (1 if response["B"] == "correct" else 0), "label": response["B"]},
         }
 
         # ----------------------------------------------------
@@ -314,28 +226,15 @@ class JudgeEvaluator:
         # based on whether the judge separated the answers.
         # ----------------------------------------------------
 
-        if winner == "TIE":
-            confidence = 0.50
-        else:
-            confidence = 1.00
+        confidence = 0.5 if winner == "TIE" else 1.0
 
-        return {
-            "winner": winner,
-            "scores": scores,
-            "confidence": confidence,
-            "reason": reason
-        }
+        return {"winner": winner, "scores": scores, "confidence": confidence, "reason": reason}
 
     # ========================================================
     # PUBLIC EVALUATE METHOD
     # ========================================================
 
-    def evaluate(
-        self,
-        problem,
-        answer_a,
-        answer_b
-    ):
+    def evaluate(self, problem, answer_a, answer_b):
         """
         Evaluate two answers using the remote
         fine-tuned Qwen judge.
@@ -346,19 +245,13 @@ class JudgeEvaluator:
         # ----------------------------------------------------
 
         if not problem or not problem.strip():
-            raise ValueError(
-                "Problem cannot be empty."
-            )
+            raise ValueError("Problem cannot be empty.")
 
         if not answer_a or not answer_a.strip():
-            raise ValueError(
-                "Answer A cannot be empty."
-            )
+            raise ValueError("Answer A cannot be empty.")
 
         if not answer_b or not answer_b.strip():
-            raise ValueError(
-                "Answer B cannot be empty."
-            )
+            raise ValueError("Answer B cannot be empty.")
 
         last_error = None
         raw_response = None
@@ -367,58 +260,35 @@ class JudgeEvaluator:
         # Retry if the remote model returns invalid JSON.
         # ----------------------------------------------------
 
-        for attempt in range(
-            self.max_retries + 1
-        ):
-
+        for attempt in range(self.max_retries + 1):
             try:
-
                 # --------------------------------------------
                 # Call Hugging Face ZeroGPU
                 # --------------------------------------------
 
-                raw_response = self._generate(
-                    problem=problem,
-                    answer_a=answer_a,
-                    answer_b=answer_b
-                )
+                raw_response = self._generate(problem=problem, answer_a=answer_a, answer_b=answer_b)
 
                 # --------------------------------------------
                 # Parse JSON
                 # --------------------------------------------
 
-                parsed_response = (
-                    self._extract_json(
-                        raw_response
-                    )
-                )
+                parsed_response = self._extract_json(raw_response)
 
                 # --------------------------------------------
                 # Validate response
                 # --------------------------------------------
 
-                parsed_response = (
-                    self._validate_response(
-                        parsed_response
-                    )
-                )
+                parsed_response = self._validate_response(parsed_response)
 
                 # --------------------------------------------
                 # Build project result
                 # --------------------------------------------
 
-                result = self._build_result(
-                    parsed_response
-                )
+                result = self._build_result(parsed_response)
 
-                return {
-                    "result": result,
-                    "raw_response": raw_response,
-                    "attempts": attempt + 1
-                }
+                return {"result": result, "raw_response": raw_response, "attempts": attempt + 1}
 
             except Exception as error:
-
                 last_error = error
 
         # ----------------------------------------------------
@@ -426,7 +296,5 @@ class JudgeEvaluator:
         # ----------------------------------------------------
 
         raise ValueError(
-            f"Judge evaluation failed after "
-            f"{self.max_retries + 1} attempts: "
-            f"{last_error}"
+            f"Judge evaluation failed after {self.max_retries + 1} attempts: {last_error}"
         )

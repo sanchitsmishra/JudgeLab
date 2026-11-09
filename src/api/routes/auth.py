@@ -2,21 +2,22 @@
 
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.api.dependencies import get_current_user_required
 from src.config.database import get_db
 from src.models import User
 from src.services.auth_jwt import (
-    verify_password,
-    get_password_hash,
-    create_access_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    create_access_token,
+    get_password_hash,
+    verify_password,
 )
-from src.api.dependencies import get_current_user_required, get_current_user_optional
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -67,29 +68,25 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
     if len(clean_user) < 3:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username must be at least 3 characters long."
+            detail="Username must be at least 3 characters long.",
         )
     if len(request.password) < 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 6 characters long."
+            detail="Password must be at least 6 characters long.",
         )
     if "@" not in clean_email or "." not in clean_email:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A valid email address is required."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="A valid email address is required."
         )
 
     # Check existing
     existing_user = await db.execute(
-        select(User).where(
-            (User.username == clean_user) | (User.email == clean_email)
-        )
+        select(User).where((User.username == clean_user) | (User.email == clean_email))
     )
     if existing_user.scalar_one_or_none():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username or email already registered."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already registered."
         )
 
     user_id = f"usr-{uuid.uuid4().hex}"
@@ -191,7 +188,7 @@ async def get_me(current_user: User = Depends(get_current_user_required)):
             username=current_user.username,
             email=current_user.email,
             created_at=current_user.created_at.isoformat() if current_user.created_at else None,
-        )
+        ),
     )
 
 

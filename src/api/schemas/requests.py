@@ -1,23 +1,30 @@
 """Pydantic schemas for API request validation."""
 
-from typing import List, Optional, Dict, Any, Literal
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class GenerationConfigSchema(BaseModel):
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1024, ge=1, le=8192)
-    top_p: Optional[float] = Field(default=None, ge=0.0, le=1.0)
-    extra_params: Dict[str, Any] = Field(default_factory=dict)
+    top_p: float | None = Field(default=None, ge=0.0, le=1.0)
+    extra_params: dict[str, Any] = Field(default_factory=dict)
 
 
 class GenerateCompareRequest(BaseModel):
-    models: List[str] = Field(..., description="List of 1 to 4 model identifiers (e.g. ['gemini:gemini-1.5-flash'])")
+    models: list[str] = Field(
+        ..., description="List of 1 to 4 model identifiers (e.g. ['gemini:gemini-1.5-flash'])"
+    )
     prompt: str = Field(..., description="Problem statement or prompt to evaluate")
-    system_prompt: Optional[str] = Field(default=None, description="Optional system instructions")
-    generation_config: Optional[GenerationConfigSchema] = Field(default=None)
-    position_swap_check: Optional[bool] = Field(default=None, description="Run position swap consistency check")
-    custom_api_keys: Optional[Dict[str, str]] = Field(default=None, description="Optional per-user API keys for providers")
+    system_prompt: str | None = Field(default=None, description="Optional system instructions")
+    generation_config: GenerationConfigSchema | None = Field(default=None)
+    position_swap_check: bool | None = Field(
+        default=None, description="Run position swap consistency check"
+    )
+    custom_api_keys: dict[str, str] | None = Field(
+        default=None, description="Optional per-user API keys for providers"
+    )
 
     @field_validator("prompt")
     @classmethod
@@ -31,7 +38,7 @@ class GenerateCompareRequest(BaseModel):
 
     @field_validator("models")
     @classmethod
-    def validate_models(cls, v: List[str]) -> List[str]:
+    def validate_models(cls, v: list[str]) -> list[str]:
         if len(v) < 1:
             raise ValueError("At least 1 model must be selected.")
         if len(v) > 4:
@@ -64,8 +71,10 @@ class ManualAnswerItem(BaseModel):
 
 class ManualCompareRequest(BaseModel):
     problem: str = Field(..., max_length=200_000, description="Problem statement or question")
-    answers: List[ManualAnswerItem] = Field(..., description="List of 2 to 4 candidate answers")
-    position_swap_check: Optional[bool] = Field(default=None, description="Run position swap consistency check")
+    answers: list[ManualAnswerItem] = Field(..., description="List of 2 to 4 candidate answers")
+    position_swap_check: bool | None = Field(
+        default=None, description="Run position swap consistency check"
+    )
 
     @field_validator("problem")
     @classmethod
@@ -77,7 +86,7 @@ class ManualCompareRequest(BaseModel):
 
     @field_validator("answers")
     @classmethod
-    def validate_answers(cls, v: List[ManualAnswerItem]) -> List[ManualAnswerItem]:
+    def validate_answers(cls, v: list[ManualAnswerItem]) -> list[ManualAnswerItem]:
         if len(v) < 2:
             raise ValueError(f"At least 2 answers are required (got {len(v)}).")
         if len(v) > 4:
@@ -98,13 +107,13 @@ class SaveOptionsSchema(BaseModel):
 
 class SaveSessionRequest(BaseModel):
     save_options: SaveOptionsSchema = Field(default_factory=SaveOptionsSchema)
-    session_data: Dict[str, Any] = Field(..., description="Full session report data to persist")
+    session_data: dict[str, Any] = Field(..., description="Full session report data to persist")
 
 
 class AsyncEvaluationRequest(BaseModel):
     mode: Literal["GENERATE_AND_COMPARE", "MANUAL_COMPARE"]
-    generate: Optional[GenerateCompareRequest] = None
-    manual: Optional[ManualCompareRequest] = None
+    generate: GenerateCompareRequest | None = None
+    manual: ManualCompareRequest | None = None
 
     @model_validator(mode="after")
     def validate_mode_payload(self):

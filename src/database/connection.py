@@ -1,11 +1,13 @@
 """Database connection and session factory."""
 
 import logging
+
 # pyrefly: ignore [missing-import]
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import declarative_base, sessionmaker
-from src.config.settings import settings, clean_database_url
+
+from src.config.settings import clean_database_url, settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +32,14 @@ def init_engine(url_str: str):
                 target_url,
                 connect_args={"check_same_thread": False} if is_sqlite else {},
                 pool_pre_ping=True,
-                echo=False
+                echo=False,
             )
             # Connectivity check to verify driver and credentials
             with eng.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            logger.info(f"Database engine successfully initialized with target scheme '{target_url.split('://')[0]}'")
+            logger.info(
+                f"Database engine successfully initialized with target scheme '{target_url.split('://')[0]}'"
+            )
             return eng, target_url
         except Exception as exc:
             last_error = exc
@@ -46,7 +50,9 @@ def init_engine(url_str: str):
             "Failed to initialize the configured production database: %s",
             last_error,
         )
-        raise RuntimeError("Could not connect to the configured production database.") from last_error
+        raise RuntimeError(
+            "Could not connect to the configured production database."
+        ) from last_error
 
     logger.error(
         "Failed to initialize database engine with URL '%s': %s. Falling back to local SQLite database.",
@@ -55,10 +61,7 @@ def init_engine(url_str: str):
     )
     fallback_url = "sqlite:///./llm_judge.db"
     eng = create_engine(
-        fallback_url,
-        connect_args={"check_same_thread": False},
-        pool_pre_ping=True,
-        echo=False
+        fallback_url, connect_args={"check_same_thread": False}, pool_pre_ping=True, echo=False
     )
     return eng, fallback_url
 
@@ -100,9 +103,13 @@ def init_db():
                 user_cols = [r[1] for r in res_users]
                 if user_cols:
                     if "is_active" not in user_cols:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+                        conn.execute(
+                            text("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1")
+                        )
                     if "is_superuser" not in user_cols:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN is_superuser BOOLEAN DEFAULT 0"))
+                        conn.execute(
+                            text("ALTER TABLE users ADD COLUMN is_superuser BOOLEAN DEFAULT 0")
+                        )
                     if "updated_at" not in user_cols:
                         conn.execute(text("ALTER TABLE users ADD COLUMN updated_at DATETIME"))
                     if "last_login" not in user_cols:
@@ -110,4 +117,3 @@ def init_db():
                     conn.commit()
         except Exception:
             pass
-

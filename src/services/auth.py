@@ -4,23 +4,26 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import time
 import uuid
-import logging
-from typing import Optional, Dict, Any
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from typing import Any
+
 from cryptography.fernet import Fernet
-from src.database.models import UserRecord
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from src.config.settings import settings
+from src.database.models import UserRecord
 
 logger = logging.getLogger("llm_judge.auth")
 
 # Secret key for token signing - defaults to env var or secure fallback
 AUTH_SECRET_KEY = os.environ.get("AUTH_SECRET_KEY", "llm-judge-secret-key-production-38f9a2b7c")
 TOKEN_EXPIRATION_SECONDS = 7 * 24 * 3600  # 7 days
+
 
 # Encryption cipher derivation for sensitive API keys at rest
 def _get_fernet() -> Fernet:
@@ -52,7 +55,9 @@ def decrypt_api_key(stored_key: str) -> str:
             return cipher.decrypt(stored_key[4:].encode("utf-8")).decode("utf-8")
         except Exception as exc:
             logger.error("API key decryption failed: %s", exc)
-            raise ValueError("Stored API key could not be decrypted with the configured key.") from exc
+            raise ValueError(
+                "Stored API key could not be decrypted with the configured key."
+            ) from exc
     return stored_key
 
 
@@ -60,15 +65,12 @@ class AuthService:
     """Handles password hashing, token generation, user verification, and session authentication."""
 
     @staticmethod
-    def hash_password(password: str, salt: Optional[str] = None) -> str:
+    def hash_password(password: str, salt: str | None = None) -> str:
         """Hash a password using PBKDF2-HMAC-SHA256 with 100,000 iterations."""
         if not salt:
             salt = secrets.token_hex(16)
         pwd_hash = hashlib.pbkdf2_hmac(
-            "sha256",
-            password.encode("utf-8"),
-            salt.encode("utf-8"),
-            100_000
+            "sha256", password.encode("utf-8"), salt.encode("utf-8"), 100_000
         ).hex()
         return f"{salt}${pwd_hash}"
 
@@ -89,21 +91,19 @@ class AuthService:
             "sub": user_id,
             "username": username,
             "exp": int(time.time()) + TOKEN_EXPIRATION_SECONDS,
-            "nonce": secrets.token_hex(8)
+            "nonce": secrets.token_hex(8),
         }
         payload_bytes = json.dumps(payload).encode("utf-8")
         payload_b64 = base64.urlsafe_b64encode(payload_bytes).decode("utf-8")
 
         signature = hmac.new(
-            AUTH_SECRET_KEY.encode("utf-8"),
-            payload_b64.encode("utf-8"),
-            hashlib.sha256
+            AUTH_SECRET_KEY.encode("utf-8"), payload_b64.encode("utf-8"), hashlib.sha256
         ).hexdigest()
 
         return f"{payload_b64}.{signature}"
 
     @staticmethod
-    def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
+    def decode_access_token(token: str) -> dict[str, Any] | None:
         """Verify token signature and return payload if valid and not expired."""
         try:
             parts = token.split(".", 1)
@@ -112,9 +112,7 @@ class AuthService:
             payload_b64, signature = parts
 
             expected_sig = hmac.new(
-                AUTH_SECRET_KEY.encode("utf-8"),
-                payload_b64.encode("utf-8"),
-                hashlib.sha256
+                AUTH_SECRET_KEY.encode("utf-8"), payload_b64.encode("utf-8"), hashlib.sha256
             ).hexdigest()
 
             if not hmac.compare_digest(signature, expected_sig):
@@ -132,13 +130,7 @@ class AuthService:
             return None
 
     @classmethod
-    def register_user(
-        cls,
-        db: Session,
-        username: str,
-        email: str,
-        password: str
-    ) -> Dict[str, Any]:
+    def register_user(cls, db: Session, username: str, email: str, password: str) -> dict[str, Any]:
         """Register a new user."""
         clean_user = username.strip()
         clean_email = email.strip().lower()
@@ -160,10 +152,7 @@ class AuthService:
         pwd_hash = cls.hash_password(password)
 
         new_user = UserRecord(
-            id=user_id,
-            username=clean_user,
-            email=clean_email,
-            password_hash=pwd_hash
+            id=user_id, username=clean_user, email=clean_email, password_hash=pwd_hash
         )
         db.add(new_user)
         db.commit()
@@ -175,26 +164,23 @@ class AuthService:
                 "id": new_user.id,
                 "username": new_user.username,
                 "email": new_user.email,
-                "created_at": new_user.created_at.isoformat() if new_user.created_at else None
+                "created_at": new_user.created_at.isoformat() if new_user.created_at else None,
             },
-            "token": token
+            "token": token,
         }
 
     @classmethod
     def authenticate_user(
-        cls,
-        db: Session,
-        username_or_email: str,
-        password: str
-    ) -> Dict[str, Any]:
+        cls, db: Session, username_or_email: str, password: str
+    ) -> dict[str, Any]:
         """Authenticate user and return profile with access token."""
         query_val = username_or_email.strip()
 
         user = (
             db.query(UserRecord)
             .filter(
-                (func.lower(UserRecord.username) == query_val.lower()) | 
-                (UserRecord.email == query_val.lower())
+                (func.lower(UserRecord.username) == query_val.lower())
+                | (UserRecord.email == query_val.lower())
             )
             .first()
         )
@@ -207,13 +193,13 @@ class AuthService:
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
-                "created_at": user.created_at.isoformat() if user.created_at else None
+                "created_at": user.created_at.isoformat() if user.created_at else None,
             },
-            "token": token
+            "token": token,
         }
 
     @classmethod
-    def get_current_user_from_token(cls, db: Session, token: str) -> Optional[UserRecord]:
+    def get_current_user_from_token(cls, db: Session, token: str) -> UserRecord | None:
         """Extract and verify user from bearer token."""
         payload = cls.decode_access_token(token)
         if not payload:

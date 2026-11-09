@@ -27,9 +27,9 @@ def evaluate_session_task(
     with SessionLocal() as db:
         user_keys = {
             record.provider: decrypt_api_key(record.api_key)
-            for record in db.query(UserApiKeyRecord).filter(
-                UserApiKeyRecord.user_id == user_id
-            ).all()
+            for record in db.query(UserApiKeyRecord)
+            .filter(UserApiKeyRecord.user_id == user_id)
+            .all()
             if record.api_key
         }
 

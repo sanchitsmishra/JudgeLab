@@ -3,29 +3,34 @@
 import logging
 import time
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from slowapi.errors import RateLimitExceeded
-from src.config.settings import settings
-from src.config.database import init_db, close_db
-from src.database.connection import init_db as sync_init_db
+
 from src.api.middleware.ratelimit import limiter, rate_limit_exceeded_handler
-from src.api.routes.models import router as models_router
-from src.api.routes.generate import router as generate_router
-from src.api.routes.compare import router as compare_router
-from src.api.routes.sessions import router as sessions_router
-from src.api.routes.auth import router as auth_router
-from src.api.routes.user_keys import router as user_keys_router
 from src.api.routes.async_evaluations import router as async_evaluations_router
+from src.api.routes.auth import router as auth_router
+from src.api.routes.compare import router as compare_router
+from src.api.routes.generate import router as generate_router
+from src.api.routes.models import router as models_router
+from src.api.routes.sessions import router as sessions_router
+from src.api.routes.user_keys import router as user_keys_router
+from src.config.database import close_db, init_db
+from src.config.settings import settings
+from src.database.connection import init_db as sync_init_db
 
 # Prometheus metrics
-REQUEST_COUNT = Counter("http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"])
-REQUEST_LATENCY = Histogram("http_request_duration_seconds", "HTTP request latency", ["method", "endpoint"])
+REQUEST_COUNT = Counter(
+    "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]
+)
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds", "HTTP request latency", ["method", "endpoint"]
+)
 
 logging.basicConfig(
-    level=settings.log_level,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    level=settings.log_level, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("llm_judge.api")
 
@@ -58,17 +63,13 @@ app = FastAPI(
     title="LLM-Judge Comparison & Evaluation Platform",
     description="Multi-model LLM comparison and pairwise evaluation platform using clean architecture.",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
-
-from starlette.requests import Request
 
 # CORS is restricted to explicitly configured origins. Local development
 # origins are added only outside production.
 allowed_origins = [
-    origin.strip()
-    for origin in settings.cors_allowed_origins.split(",")
-    if origin.strip()
+    origin.strip() for origin in settings.cors_allowed_origins.split(",") if origin.strip()
 ]
 # The production Vercel deployment is a first-party origin and must be
 # allowed even when the Render environment has not yet set this variable.
@@ -121,17 +122,12 @@ async def metrics_middleware(request: Request, call_next):
     start_time = time.perf_counter()
     response: Response = await call_next(request)
     latency = time.perf_counter() - start_time
-    
+
     REQUEST_COUNT.labels(
-        method=request.method,
-        endpoint=request.url.path,
-        status=response.status_code
+        method=request.method, endpoint=request.url.path, status=response.status_code
     ).inc()
-    REQUEST_LATENCY.labels(
-        method=request.method,
-        endpoint=request.url.path
-    ).observe(latency)
-    
+    REQUEST_LATENCY.labels(method=request.method, endpoint=request.url.path).observe(latency)
+
     return response
 
 
@@ -151,18 +147,14 @@ async def root():
         "platform": "LLM-Judge",
         "version": "2.0.0",
         "status": "operational",
-        "docs_url": "/docs"
+        "docs_url": "/docs",
     }
 
 
 @app.get("/health")
 @app.get("/api/health")
 async def health():
-    return {
-        "status": "healthy",
-        "environment": settings.app_env,
-        "version": "2.0.0"
-    }
+    return {"status": "healthy", "environment": settings.app_env, "version": "2.0.0"}
 
 
 @app.get("/metrics")

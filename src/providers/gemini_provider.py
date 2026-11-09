@@ -1,16 +1,17 @@
 """Google Gemini provider implementation."""
 
 import time
-from typing import Optional, Dict, Any
+
 import httpx
+
 from src.config.settings import settings
-from src.providers.base import BaseProvider, ProviderResponse, ProviderError, GenerationConfig
+from src.providers.base import BaseProvider, GenerationConfig, ProviderError, ProviderResponse
 
 
 class GeminiProvider(BaseProvider):
     """Provider for Google Gemini API via REST generateContent."""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.google_api_key
 
     @property
@@ -24,8 +25,8 @@ class GeminiProvider(BaseProvider):
         self,
         model_name: str,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        generation_config: Optional[GenerationConfig] = None
+        system_prompt: str | None = None,
+        generation_config: GenerationConfig | None = None,
     ) -> ProviderResponse:
         start_time = time.perf_counter()
 
@@ -39,8 +40,8 @@ class GeminiProvider(BaseProvider):
                 error=ProviderError(
                     type="ConfigurationError",
                     message="GOOGLE_API_KEY is not configured in environment.",
-                    retryable=False
-                )
+                    retryable=False,
+                ),
             )
 
         cfg = generation_config or GenerationConfig()
@@ -52,23 +53,24 @@ class GeminiProvider(BaseProvider):
 
         contents = []
         if system_prompt:
-            contents.append({
-                "role": "user",
-                "parts": [{"text": f"SYSTEM INSTRUCTION:\n{system_prompt}\n\nUSER PROMPT:\n{prompt}"}]
-            })
+            contents.append(
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": f"SYSTEM INSTRUCTION:\n{system_prompt}\n\nUSER PROMPT:\n{prompt}"}
+                    ],
+                }
+            )
         else:
-            contents.append({
-                "role": "user",
-                "parts": [{"text": prompt}]
-            })
+            contents.append({"role": "user", "parts": [{"text": prompt}]})
 
         payload = {
             "contents": contents,
             "generationConfig": {
                 "temperature": cfg.temperature,
                 "maxOutputTokens": cfg.max_tokens,
-                **cfg.extra_params
-            }
+                **cfg.extra_params,
+            },
         }
 
         try:
@@ -85,8 +87,8 @@ class GeminiProvider(BaseProvider):
                         error=ProviderError(
                             type="APIError",
                             message=f"Gemini API error HTTP {resp.status_code}: {resp.text[:200]}",
-                            retryable=resp.status_code in [429, 500, 503]
-                        )
+                            retryable=resp.status_code in [429, 500, 503],
+                        ),
                     )
 
                 data = resp.json()
@@ -100,8 +102,8 @@ class GeminiProvider(BaseProvider):
                         error=ProviderError(
                             type="EmptyResponseError",
                             message="Gemini returned no candidates (possibly filtered).",
-                            retryable=False
-                        )
+                            retryable=False,
+                        ),
                     )
 
                 parts = candidates[0].get("content", {}).get("parts", [])
@@ -119,7 +121,7 @@ class GeminiProvider(BaseProvider):
                     latency_seconds=elapsed,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
-                    raw_metadata={"finishReason": candidates[0].get("finishReason")}
+                    raw_metadata={"finishReason": candidates[0].get("finishReason")},
                 )
 
         except httpx.TimeoutException:
@@ -132,8 +134,8 @@ class GeminiProvider(BaseProvider):
                 error=ProviderError(
                     type="TimeoutError",
                     message=f"Gemini request timed out after {settings.generation_timeout_seconds}s.",
-                    retryable=True
-                )
+                    retryable=True,
+                ),
             )
         except Exception as exc:
             elapsed = time.perf_counter() - start_time
@@ -142,9 +144,5 @@ class GeminiProvider(BaseProvider):
                 model=model_name,
                 provider=self.provider_name,
                 latency_seconds=elapsed,
-                error=ProviderError(
-                    type=type(exc).__name__,
-                    message=str(exc),
-                    retryable=False
-                )
+                error=ProviderError(type=type(exc).__name__, message=str(exc), retryable=False),
             )

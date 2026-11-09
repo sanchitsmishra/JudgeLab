@@ -1,7 +1,7 @@
 """Ranking engine for aggregating pairwise evaluation results and computing model standings."""
 
-from typing import List, Dict, Any, Optional
 from collections import defaultdict
+from typing import Any
 
 
 class RankingEngine:
@@ -25,26 +25,28 @@ class RankingEngine:
     @classmethod
     def rank_models(
         cls,
-        comparisons: List[Dict[str, Any]],
-        all_model_ids: Optional[List[str]] = None,
-        model_name_map: Optional[Dict[str, str]] = None,
-        strategy: str = "competition"  # 'competition' or 'dense'
-    ) -> List[Dict[str, Any]]:
+        comparisons: list[dict[str, Any]],
+        all_model_ids: list[str] | None = None,
+        model_name_map: dict[str, str] | None = None,
+        strategy: str = "competition",  # 'competition' or 'dense'
+    ) -> list[dict[str, Any]]:
         name_map = model_name_map or {}
 
         # Initialize stats tracking per model
-        stats: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
-            "model_id": "",
-            "model_name": "",
-            "wins": 0,
-            "losses": 0,
-            "ties": 0,
-            "total_comparisons": 0,
-            "successful_evaluations": 0,
-            "failed_evaluations": 0,
-            "final_scores": [],
-            "criteria_scores": {k: [] for k in cls.CRITERIA_KEYS}
-        })
+        stats: dict[str, dict[str, Any]] = defaultdict(
+            lambda: {
+                "model_id": "",
+                "model_name": "",
+                "wins": 0,
+                "losses": 0,
+                "ties": 0,
+                "total_comparisons": 0,
+                "successful_evaluations": 0,
+                "failed_evaluations": 0,
+                "final_scores": [],
+                "criteria_scores": {k: [] for k in cls.CRITERIA_KEYS},
+            }
+        )
 
         # Ensure all models are present even if all comparisons failed
         if all_model_ids:
@@ -115,15 +117,14 @@ class RankingEngine:
 
             avg_final = (
                 round(sum(data["final_scores"]) / len(data["final_scores"]), 2)
-                if data["final_scores"] else 0.0
+                if data["final_scores"]
+                else 0.0
             )
 
             criteria_avgs = {}
             for crit in cls.CRITERIA_KEYS:
                 vals = data["criteria_scores"][crit]
-                criteria_avgs[f"average_{crit}"] = (
-                    round(sum(vals) / len(vals), 2) if vals else 0.0
-                )
+                criteria_avgs[f"average_{crit}"] = round(sum(vals) / len(vals), 2) if vals else 0.0
 
             entry = {
                 "model_id": mid,
@@ -136,7 +137,7 @@ class RankingEngine:
                 "failed_evaluations": data["failed_evaluations"],
                 "win_rate": win_rate,
                 "average_final_score": avg_final,
-                **criteria_avgs
+                **criteria_avgs,
             }
             aggregated_models.append(entry)
 
@@ -146,13 +147,13 @@ class RankingEngine:
         # 3. Average final score (descending)
         # 4. Average correctness (descending)
         # 5. Successful evaluations (descending)
-        def sort_key(item: Dict[str, Any]):
+        def sort_key(item: dict[str, Any]):
             return (
                 item["win_rate"],
                 item["wins"],
                 item["average_final_score"],
                 item["average_correctness"],
-                item["successful_evaluations"]
+                item["successful_evaluations"],
             )
 
         aggregated_models.sort(key=sort_key, reverse=True)

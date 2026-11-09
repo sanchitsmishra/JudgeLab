@@ -1,16 +1,17 @@
 """DeepSeek API provider implementation."""
 
 import time
-from typing import Optional, Dict, Any
+
 import httpx
+
 from src.config.settings import settings
-from src.providers.base import BaseProvider, ProviderResponse, ProviderError, GenerationConfig
+from src.providers.base import BaseProvider, GenerationConfig, ProviderError, ProviderResponse
 
 
 class DeepSeekProvider(BaseProvider):
     """Provider for DeepSeek API (OpenAI-compatible protocol)."""
 
-    def __init__(self, api_key: Optional[str] = None, base_url: str = "https://api.deepseek.com/v1"):
+    def __init__(self, api_key: str | None = None, base_url: str = "https://api.deepseek.com/v1"):
         self.api_key = api_key or settings.deepseek_api_key
         self.base_url = base_url.rstrip("/")
 
@@ -25,8 +26,8 @@ class DeepSeekProvider(BaseProvider):
         self,
         model_name: str,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        generation_config: Optional[GenerationConfig] = None
+        system_prompt: str | None = None,
+        generation_config: GenerationConfig | None = None,
     ) -> ProviderResponse:
         start_time = time.perf_counter()
 
@@ -40,8 +41,8 @@ class DeepSeekProvider(BaseProvider):
                 error=ProviderError(
                     type="ConfigurationError",
                     message="DEEPSEEK_API_KEY is not configured in environment.",
-                    retryable=False
-                )
+                    retryable=False,
+                ),
             )
 
         messages = []
@@ -55,20 +56,15 @@ class DeepSeekProvider(BaseProvider):
             "messages": messages,
             "temperature": cfg.temperature,
             "max_tokens": cfg.max_tokens,
-            **cfg.extra_params
+            **cfg.extra_params,
         }
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
         try:
             async with httpx.AsyncClient(timeout=settings.generation_timeout_seconds) as client:
                 resp = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers
+                    f"{self.base_url}/chat/completions", json=payload, headers=headers
                 )
                 elapsed = time.perf_counter() - start_time
 
@@ -81,8 +77,8 @@ class DeepSeekProvider(BaseProvider):
                         error=ProviderError(
                             type="APIError",
                             message=f"DeepSeek error HTTP {resp.status_code}: {resp.text[:200]}",
-                            retryable=resp.status_code in [429, 500, 502, 503]
-                        )
+                            retryable=resp.status_code in [429, 500, 502, 503],
+                        ),
                     )
 
                 data = resp.json()
@@ -96,8 +92,8 @@ class DeepSeekProvider(BaseProvider):
                         error=ProviderError(
                             type="EmptyResponseError",
                             message="DeepSeek returned empty choices.",
-                            retryable=False
-                        )
+                            retryable=False,
+                        ),
                     )
 
                 answer = choices[0].get("message", {}).get("content", "")
@@ -111,7 +107,7 @@ class DeepSeekProvider(BaseProvider):
                     latency_seconds=elapsed,
                     input_tokens=usage.get("prompt_tokens"),
                     output_tokens=usage.get("completion_tokens"),
-                    raw_metadata={"id": data.get("id")}
+                    raw_metadata={"id": data.get("id")},
                 )
 
         except httpx.TimeoutException:
@@ -124,8 +120,8 @@ class DeepSeekProvider(BaseProvider):
                 error=ProviderError(
                     type="TimeoutError",
                     message=f"DeepSeek request timed out after {settings.generation_timeout_seconds}s.",
-                    retryable=True
-                )
+                    retryable=True,
+                ),
             )
         except Exception as exc:
             elapsed = time.perf_counter() - start_time
@@ -134,9 +130,5 @@ class DeepSeekProvider(BaseProvider):
                 model=model_name,
                 provider=self.provider_name,
                 latency_seconds=elapsed,
-                error=ProviderError(
-                    type=type(exc).__name__,
-                    message=str(exc),
-                    retryable=False
-                )
+                error=ProviderError(type=type(exc).__name__, message=str(exc), retryable=False),
             )

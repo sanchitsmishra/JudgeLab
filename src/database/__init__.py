@@ -1,12 +1,12 @@
-from src.database.connection import engine, SessionLocal, Base, get_db, init_db
+from src.database.connection import Base, SessionLocal, engine, get_db, init_db
 from src.database.models import (
-    SessionRecord,
-    PromptRecord,
+    EvaluationResultRecord,
     ModelResponseRecord,
     PairwiseComparisonRecord,
-    EvaluationResultRecord,
-    UserRecord,
+    PromptRecord,
+    SessionRecord,
     UserApiKeyRecord,
+    UserRecord,
 )
 from src.database.repository import SessionRepository
 
